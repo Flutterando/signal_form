@@ -84,9 +84,7 @@ extension StringFieldValidators on Field<String> {
     r':(?::[0-9a-fA-F]{1,4}){1,7}|'
     r'::)$',
   );
-  static final _macRegex = RegExp(
-    r'^(?:[0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$',
-  );
+  static final _macRegex = RegExp(r'^(?:[0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$');
   static final _cidrv4Regex = RegExp(
     r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
     r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/(?:3[0-2]|[12]?[0-9])$',
@@ -122,7 +120,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final name = Field<String>('name')
-  ///   ..required(message: 'Nome é obrigatório');
+  ///   .required(message: 'Nome é obrigatório');
   /// ```
   Field<String> required({String message = '', bool exposed = false}) {
     return addValidator(
@@ -144,7 +142,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final role = Field<String>('role')
-  ///   ..oneOf(['admin', 'editor', 'viewer'], message: 'Perfil inválido');
+  ///   .oneOf(['admin', 'editor', 'viewer'], message: 'Perfil inválido');
   /// ```
   Field<String> oneOf(
     List<String> allowedValues, {
@@ -171,7 +169,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final companyName = Field<String>('companyName')
-  ///   ..when(
+  ///   .when(
   ///     (valueOf) => valueOf<String>('accountType').value == 'company',
   ///     message: 'Razão social é obrigatória para empresas',
   ///   );
@@ -195,7 +193,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..minLength(8, message: 'Senha deve ter no mínimo 8 caracteres');
+  ///   .minLength(8, message: 'Senha deve ter no mínimo 8 caracteres');
   /// ```
   Field<String> minLength(
     int length, {
@@ -221,7 +219,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final bio = Field<String>('bio')
-  ///   ..maxLength(280, message: 'Bio deve ter no máximo 280 caracteres');
+  ///   .maxLength(280, message: 'Bio deve ter no máximo 280 caracteres');
   /// ```
   Field<String> maxLength(
     int length, {
@@ -245,7 +243,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final code = Field<String>('verificationCode')
-  ///   ..length(6, message: 'Código deve ter 6 dígitos');
+  ///   .length(6, message: 'Código deve ter 6 dígitos');
   /// ```
   Field<String> length(
     int exactLength, {
@@ -271,8 +269,8 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final email = Field<String>('email')
-  ///   ..required(message: 'Obrigatório')
-  ///   ..email(message: 'Email inválido');
+  ///   .required(message: 'Obrigatório')
+  ///   .email(message: 'Email inválido');
   /// ```
   Field<String> email({String message = '', bool exposed = false}) {
     return addValidator(
@@ -294,7 +292,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final website = Field<String>('website')
-  ///   ..validUrl(message: 'URL inválida');
+  ///   .validUrl(message: 'URL inválida');
   /// ```
   Field<String> validUrl({String message = '', bool exposed = false}) {
     return addValidator(message, (val) {
@@ -320,7 +318,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final plate = Field<String>('plate')
-  ///   ..pattern(RegExp(r'^[A-Z]{3}-\d{4}$'), message: 'Placa inválida');
+  ///   .pattern(RegExp(r'^[A-Z]{3}-\d{4}$'), message: 'Placa inválida');
   /// ```
   Field<String> pattern(
     RegExp regex, {
@@ -343,7 +341,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final username = Field<String>('username')
-  ///   ..alphanumeric(message: 'Apenas letras e números');
+  ///   .alphanumeric(message: 'Apenas letras e números');
   /// ```
   Field<String> alphanumeric({String message = '', bool exposed = false}) {
     return pattern(_alphanumericRegex, message: message, exposed: exposed);
@@ -358,7 +356,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final pin = Field<String>('pin')
-  ///   ..numeric(message: 'PIN deve conter apenas números');
+  ///   .numeric(message: 'PIN deve conter apenas números');
   /// ```
   Field<String> numeric({String message = '', bool exposed = false}) {
     return pattern(_numericRegex, message: message, exposed: exposed);
@@ -374,7 +372,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final domain = Field<String>('email')
-  ///   ..contains('@empresa.com', message: 'Use seu email corporativo');
+  ///   .contains('@empresa.com', message: 'Use seu email corporativo');
   /// ```
   Field<String> contains(
     String substring, {
@@ -398,7 +396,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final url = Field<String>('url')
-  ///   ..startsWith('https://', message: 'URL deve começar com https://');
+  ///   .startsWith('https://', message: 'URL deve começar com https://');
   /// ```
   Field<String> startsWith(
     String prefix, {
@@ -422,7 +420,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final file = Field<String>('filename')
-  ///   ..endsWith('.pdf', message: 'Arquivo deve ser PDF');
+  ///   .endsWith('.pdf', message: 'Arquivo deve ser PDF');
   /// ```
   Field<String> endsWith(
     String suffix, {
@@ -445,7 +443,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..mustHaveLowercase(message: 'Deve conter letra minúscula',
+  ///   .mustHaveLowercase(message: 'Deve conter letra minúscula',
   ///       exposed: true);
   /// ```
   Field<String> mustHaveLowercase({String message = '', bool exposed = false}) {
@@ -465,7 +463,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..mustHaveUppercase(message: 'Deve conter letra maiúscula',
+  ///   .mustHaveUppercase(message: 'Deve conter letra maiúscula',
   ///       exposed: true);
   /// ```
   Field<String> mustHaveUppercase({String message = '', bool exposed = false}) {
@@ -485,7 +483,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..mustHaveNumber(message: 'Deve conter um número', exposed: true);
+  ///   .mustHaveNumber(message: 'Deve conter um número', exposed: true);
   /// ```
   Field<String> mustHaveNumber({String message = '', bool exposed = false}) {
     return addValidator(
@@ -505,7 +503,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..mustHaveSpecialChar(message: 'Deve conter caractere especial',
+  ///   .mustHaveSpecialChar(message: 'Deve conter caractere especial',
   ///       exposed: true);
   /// ```
   Field<String> mustHaveSpecialChar({
@@ -533,7 +531,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final confirmPassword = Field<String>('confirmPassword')
-  ///   ..matches('password', message: 'Senhas não coincidem');
+  ///   .matches('password', message: 'Senhas não coincidem');
   /// ```
   Field<String> matches(
     String otherFieldPath, {
@@ -560,8 +558,8 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final confirmPassword = Field<String>('confirmPassword')
-  ///   ..required()
-  ///   ..equals(
+  ///   .required()
+  ///   .equals(
   ///     (valueOf) => valueOf<String>('account.password'),
   ///     message: 'As senhas não coincidem',
   ///   );
@@ -590,7 +588,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final title = Field<String>('title')
-  ///   ..notEmpty(message: 'Título não pode ser vazio');
+  ///   .notEmpty(message: 'Título não pode ser vazio');
   /// ```
   Field<String> notEmpty({String message = '', bool exposed = false}) {
     return addValidator(
@@ -634,7 +632,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final code = Field<String>('code')
-  ///   ..matchesPattern(RegExp(r'^[A-Z]{2}\d{4}$'),
+  ///   .matchesPattern(RegExp(r'^[A-Z]{2}\d{4}$'),
   ///       message: 'Formato: 2 letras + 4 números');
   /// ```
   Field<String> matchesPattern(
@@ -660,7 +658,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..mustHaveNumbers(message: 'Deve conter números', exposed: true);
+  ///   .mustHaveNumbers(message: 'Deve conter números', exposed: true);
   /// ```
   Field<String> mustHaveNumbers({String message = '', bool exposed = false}) {
     return addValidator(
@@ -681,7 +679,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..mustHaveSpecialCharacter(message: 'Deve conter caractere especial');
+  ///   .mustHaveSpecialCharacter(message: 'Deve conter caractere especial');
   /// ```
   Field<String> mustHaveSpecialCharacter({
     String message = '',
@@ -706,7 +704,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final cpf = Field<String>('cpf')
-  ///   ..validCPF(message: 'CPF inválido');
+  ///   .validCPF(message: 'CPF inválido');
   /// ```
   Field<String> validCPF({String message = ''}) {
     return addValidator(message, (val) {
@@ -747,7 +745,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final cnpj = Field<String>('cnpj')
-  ///   ..validCNPJ(message: 'CNPJ inválido');
+  ///   .validCNPJ(message: 'CNPJ inválido');
   /// ```
   Field<String> validCNPJ({String message = ''}) {
     return addValidator(message, (val) {
@@ -789,7 +787,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final zip = Field<String>('zip')
-  ///   ..validCEP(message: 'CEP inválido');
+  ///   .validCEP(message: 'CEP inválido');
   /// ```
   Field<String> validCEP({String message = ''}) {
     return addValidator(message, (val) {
@@ -810,7 +808,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final document = Field<String>('document')
-  ///   ..validCPFOrCNPJ(message: 'CPF ou CNPJ inválido');
+  ///   .validCPFOrCNPJ(message: 'CPF ou CNPJ inválido');
   /// ```
   Field<String> validCPFOrCNPJ({String message = ''}) {
     return addValidator(message, (val) {
@@ -872,7 +870,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final card = Field<String>('cardNumber')
-  ///   ..validCreditCard(message: 'Número de cartão inválido');
+  ///   .validCreditCard(message: 'Número de cartão inválido');
   /// ```
   Field<String> validCreditCard({String message = ''}) {
     return addValidator(message, (val) {
@@ -907,7 +905,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final phone = Field<String>('phone')
-  ///   ..validPhoneBR(message: 'Telefone inválido');
+  ///   .validPhoneBR(message: 'Telefone inválido');
   /// ```
   Field<String> validPhoneBR({String message = ''}) {
     return addValidator(message, (val) {
@@ -928,7 +926,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final phone = Field<String>('phone')
-  ///   ..validPhoneWithCountryCodeBR(message: 'Telefone com DDI inválido');
+  ///   .validPhoneWithCountryCodeBR(message: 'Telefone com DDI inválido');
   /// ```
   Field<String> validPhoneWithCountryCodeBR({String message = ''}) {
     return addValidator(message, (val) {
@@ -951,7 +949,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..hasNoSequentialRepeatedCharacters(
+  ///   .hasNoSequentialRepeatedCharacters(
   ///       maxRepeated: 3,
   ///       message: 'Não use caracteres repetidos em sequência');
   /// ```
@@ -981,7 +979,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..hasNoSequentialCharacters(
+  ///   .hasNoSequentialCharacters(
   ///       seqLength: 3,
   ///       message: 'Não use sequências como abc ou 123');
   /// ```
@@ -1010,7 +1008,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final id = Field<String>('id')
-  ///   ..uuid(message: 'ID inválido');
+  ///   .uuid(message: 'ID inválido');
   /// ```
   Field<String> uuid({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1031,7 +1029,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final sessionId = Field<String>('sessionId')
-  ///   ..uuidv4(message: 'Session ID deve ser UUID v4');
+  ///   .uuidv4(message: 'Session ID deve ser UUID v4');
   /// ```
   Field<String> uuidv4({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1119,7 +1117,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final id = Field<String>('id')
-  ///   ..nanoid(size: 21, message: 'ID inválido');
+  ///   .nanoid(size: 21, message: 'ID inválido');
   /// ```
   Field<String> nanoid({
     int size = 21,
@@ -1159,7 +1157,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final birthDate = Field<String>('birthDate')
-  ///   ..date(message: 'Use o formato YYYY-MM-DD');
+  ///   .date(message: 'Use o formato YYYY-MM-DD');
   /// ```
   Field<String> date({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1255,7 +1253,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final webhook = Field<String>('webhookUrl')
-  ///   ..httpUrl(message: 'Informe uma URL HTTP/HTTPS válida');
+  ///   .httpUrl(message: 'Informe uma URL HTTP/HTTPS válida');
   /// ```
   Field<String> httpUrl({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1368,8 +1366,7 @@ extension StringFieldValidators on Field<String> {
   Field<String> base64url({String message = '', bool exposed = false}) {
     return addValidator(
       message,
-      (val) =>
-          val != null && val.isNotEmpty && !_base64urlRegex.hasMatch(val),
+      (val) => val != null && val.isNotEmpty && !_base64urlRegex.hasMatch(val),
       exposedMessage: exposed,
     );
   }
@@ -1384,7 +1381,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final color = Field<String>('hexColor')
-  ///   ..hex(message: 'Valor hexadecimal inválido');
+  ///   .hex(message: 'Valor hexadecimal inválido');
   /// ```
   Field<String> hex({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1420,7 +1417,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final reaction = Field<String>('reaction')
-  ///   ..emoji(message: 'Adicione ao menos um emoji');
+  ///   .emoji(message: 'Adicione ao menos um emoji');
   /// ```
   Field<String> emoji({String message = '', bool exposed = false}) {
     return addValidator(message, (val) {
@@ -1450,7 +1447,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final checksum = Field<String>('checksum')
-  ///   ..hash('sha256', message: 'Checksum SHA-256 inválido');
+  ///   .hash('sha256', message: 'Checksum SHA-256 inválido');
   /// ```
   Field<String> hash(
     String algorithm, {
@@ -1483,7 +1480,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final countryCode = Field<String>('country')
-  ///   ..uppercase(message: 'Código do país deve ser maiúsculo (ex: BR)');
+  ///   .uppercase(message: 'Código do país deve ser maiúsculo (ex: BR)');
   /// ```
   Field<String> uppercase({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1502,7 +1499,7 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final slug = Field<String>('slug')
-  ///   ..lowercase(message: 'Slug deve ser minúsculo');
+  ///   .lowercase(message: 'Slug deve ser minúsculo');
   /// ```
   Field<String> lowercase({String message = '', bool exposed = false}) {
     return addValidator(
@@ -1526,8 +1523,8 @@ extension StringFieldValidators on Field<String> {
   /// Example:
   /// ```dart
   /// final document = Field<String>('document')
-  ///   ..maskCPFOrCNPJ()
-  ///   ..validCPFOrCNPJ(message: 'Documento inválido');
+  ///   .maskCPFOrCNPJ()
+  ///   .validCPFOrCNPJ(message: 'Documento inválido');
   ///
   /// document.value = '12345678909';
   /// print(document.value); // '123.456.789-09'

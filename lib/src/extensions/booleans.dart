@@ -29,7 +29,7 @@ extension BoolFieldValidators on Field<bool> {
   /// Example:
   /// ```dart
   /// final terms = Field<bool>('acceptTerms')
-  ///   ..mustBeTrue(message: 'Você deve aceitar os termos');
+  ///   .mustBeTrue(message: 'Você deve aceitar os termos');
   ///
   /// terms.value = false;
   /// terms.validate();
@@ -49,7 +49,7 @@ extension BoolFieldValidators on Field<bool> {
   /// Example:
   /// ```dart
   /// final consent = Field<bool>('marketingOptOut')
-  ///   ..mustBeFalse(message: 'Opção inválida');
+  ///   .mustBeFalse(message: 'Opção inválida');
   /// ```
   Field<bool> mustBeFalse({String message = '', bool exposed = false}) {
     return addValidator(
@@ -72,7 +72,7 @@ extension BoolFieldValidators on Field<bool> {
   /// Example:
   /// ```dart
   /// final newsletter = Field<bool>('newsletter')
-  ///   ..required(message: 'Selecione uma opção');
+  ///   .required(message: 'Selecione uma opção');
   ///
   /// newsletter.validate(); // null → error
   /// newsletter.value = false;

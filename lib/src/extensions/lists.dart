@@ -27,7 +27,7 @@ extension ListFieldValidators<T> on Field<List<T>> {
   /// Example:
   /// ```dart
   /// final tags = Field<List<String>>('tags')
-  ///   ..required(message: 'Selecione ao menos uma tag');
+  ///   .required(message: 'Selecione ao menos uma tag');
   /// ```
   Field<List<T>> required({String message = '', bool exposed = false}) {
     return addValidator(
@@ -48,8 +48,8 @@ extension ListFieldValidators<T> on Field<List<T>> {
   /// Example:
   /// ```dart
   /// final photos = Field<List<String>>('photos')
-  ///   ..minItems(1, message: 'Adicione ao menos 1 foto')
-  ///   ..maxItems(5, message: 'Máximo de 5 fotos');
+  ///   .minItems(1, message: 'Adicione ao menos 1 foto')
+  ///   .maxItems(5, message: 'Máximo de 5 fotos');
   /// ```
   Field<List<T>> minItems(
     int count, {
@@ -74,7 +74,7 @@ extension ListFieldValidators<T> on Field<List<T>> {
   /// Example:
   /// ```dart
   /// final selected = Field<List<int>>('selected')
-  ///   ..maxItems(3, message: 'Selecione no máximo 3 itens');
+  ///   .maxItems(3, message: 'Selecione no máximo 3 itens');
   /// ```
   Field<List<T>> maxItems(
     int count, {
@@ -99,7 +99,7 @@ extension ListFieldValidators<T> on Field<List<T>> {
   /// Example:
   /// ```dart
   /// final coordinates = Field<List<double>>('point')
-  ///   ..itemCount(2, message: 'Informe latitude e longitude');
+  ///   .itemCount(2, message: 'Informe latitude e longitude');
   /// ```
   Field<List<T>> itemCount(
     int count, {
@@ -124,7 +124,7 @@ extension ListFieldValidators<T> on Field<List<T>> {
   /// Example:
   /// ```dart
   /// final roles = Field<List<String>>('roles')
-  ///   ..contains('admin', message: 'Requer permissão de administrador');
+  ///   .contains('admin', message: 'Requer permissão de administrador');
   /// ```
   Field<List<T>> contains(T item, {String message = '', bool exposed = false}) {
     return addValidator(

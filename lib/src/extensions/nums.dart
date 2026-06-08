@@ -14,7 +14,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final quantity = Field<num>('quantity')
-  ///   ..required(message: 'Informe a quantidade');
+  ///   .required(message: 'Informe a quantidade');
   /// ```
   Field<num> required({String message = '', bool exposed = false}) {
     return addValidator(message, (val) => val == null, exposedMessage: exposed);
@@ -31,7 +31,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final price = Field<num>('price')
-  ///   ..min(0.01, message: 'Preço deve ser maior que zero');
+  ///   .min(0.01, message: 'Preço deve ser maior que zero');
   /// ```
   Field<num> min(num minValue, {String message = '', bool exposed = false}) {
     return addValidator(
@@ -52,7 +52,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final discount = Field<num>('discount')
-  ///   ..max(100, message: 'Desconto não pode exceder 100%');
+  ///   .max(100, message: 'Desconto não pode exceder 100%');
   /// ```
   Field<num> max(num maxValue, {String message = '', bool exposed = false}) {
     return addValidator(
@@ -74,7 +74,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final rating = Field<num>('rating')
-  ///   ..range(1, 5, message: 'Avaliação deve ser entre 1 e 5');
+  ///   .range(1, 5, message: 'Avaliação deve ser entre 1 e 5');
   /// ```
   Field<num> range(
     num minValue,
@@ -98,7 +98,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final amount = Field<num>('amount')
-  ///   ..positive(message: 'Valor deve ser positivo');
+  ///   .positive(message: 'Valor deve ser positivo');
   /// ```
   Field<num> positive({String message = '', bool exposed = false}) {
     return addValidator(
@@ -118,7 +118,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final adjustment = Field<num>('adjustment')
-  ///   ..negative(message: 'Ajuste deve ser negativo');
+  ///   .negative(message: 'Ajuste deve ser negativo');
   /// ```
   Field<num> negative({String message = '', bool exposed = false}) {
     return addValidator(
@@ -138,7 +138,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final divisor = Field<num>('divisor')
-  ///   ..nonZero(message: 'Divisor não pode ser zero');
+  ///   .nonZero(message: 'Divisor não pode ser zero');
   /// ```
   Field<num> nonZero({String message = '', bool exposed = false}) {
     return addValidator(
@@ -159,7 +159,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final score = Field<num>('score')
-  ///   ..greaterThan(0, message: 'Pontuação deve ser maior que 0');
+  ///   .greaterThan(0, message: 'Pontuação deve ser maior que 0');
   /// ```
   Field<num> greaterThan(
     num minValue, {
@@ -184,7 +184,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final speed = Field<num>('speed')
-  ///   ..lessThan(300, message: 'Velocidade deve ser menor que 300');
+  ///   .lessThan(300, message: 'Velocidade deve ser menor que 300');
   /// ```
   Field<num> lessThan(
     num maxValue, {
@@ -208,7 +208,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final stock = Field<num>('stock')
-  ///   ..nonnegative(message: 'Estoque não pode ser negativo');
+  ///   .nonnegative(message: 'Estoque não pode ser negativo');
   /// ```
   Field<num> nonnegative({String message = '', bool exposed = false}) {
     return addValidator(
@@ -229,7 +229,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final quantity = Field<num>('quantity')
-  ///   ..multipleOf(5, message: 'Quantidade deve ser múltiplo de 5');
+  ///   .multipleOf(5, message: 'Quantidade deve ser múltiplo de 5');
   /// ```
   Field<num> multipleOf(
     num divisor, {
@@ -256,7 +256,7 @@ extension NumFieldValidators on Field<num> {
   /// Example:
   /// ```dart
   /// final volume = Field<num>('volume')
-  ///   ..step(0.5, message: 'Volume deve ser múltiplo de 0.5');
+  ///   .step(0.5, message: 'Volume deve ser múltiplo de 0.5');
   /// ```
   Field<num> step(num stepValue, {String message = '', bool exposed = false}) {
     return multipleOf(stepValue, message: message, exposed: exposed);
@@ -277,7 +277,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final age = Field<int>('age')
-  ///   ..required(message: 'Informe sua idade');
+  ///   .required(message: 'Informe sua idade');
   /// ```
   Field<int> required({String message = '', bool exposed = false}) {
     return addValidator(message, (val) => val == null, exposedMessage: exposed);
@@ -294,7 +294,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final age = Field<int>('age')
-  ///   ..min(18, message: 'Idade mínima: 18 anos');
+  ///   .min(18, message: 'Idade mínima: 18 anos');
   /// ```
   Field<int> min(int minValue, {String message = '', bool exposed = false}) {
     return addValidator(
@@ -315,7 +315,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final age = Field<int>('age')
-  ///   ..max(120, message: 'Idade máxima: 120 anos');
+  ///   .max(120, message: 'Idade máxima: 120 anos');
   /// ```
   Field<int> max(int maxValue, {String message = '', bool exposed = false}) {
     return addValidator(
@@ -337,7 +337,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final installments = Field<int>('installments')
-  ///   ..range(1, 12, message: 'Parcelas: de 1 a 12');
+  ///   .range(1, 12, message: 'Parcelas: de 1 a 12');
   /// ```
   Field<int> range(
     int minValue,
@@ -362,7 +362,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final count = Field<int>('count')
-  ///   ..positive(message: 'Quantidade deve ser positiva');
+  ///   .positive(message: 'Quantidade deve ser positiva');
   /// ```
   Field<int> positive({String message = '', bool exposed = false}) {
     return addValidator(
@@ -382,7 +382,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final delta = Field<int>('delta')
-  ///   ..negative(message: 'Delta deve ser negativo');
+  ///   .negative(message: 'Delta deve ser negativo');
   /// ```
   Field<int> negative({String message = '', bool exposed = false}) {
     return addValidator(
@@ -402,7 +402,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final columns = Field<int>('columns')
-  ///   ..even(message: 'Número de colunas deve ser par');
+  ///   .even(message: 'Número de colunas deve ser par');
   /// ```
   Field<int> even({String message = '', bool exposed = false}) {
     return addValidator(
@@ -422,7 +422,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final players = Field<int>('players')
-  ///   ..odd(message: 'Número de jogadores deve ser ímpar');
+  ///   .odd(message: 'Número de jogadores deve ser ímpar');
   /// ```
   Field<int> odd({String message = '', bool exposed = false}) {
     return addValidator(
@@ -443,7 +443,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final level = Field<int>('level')
-  ///   ..greaterThan(0, message: 'Nível deve ser maior que 0');
+  ///   .greaterThan(0, message: 'Nível deve ser maior que 0');
   /// ```
   Field<int> greaterThan(
     int minValue, {
@@ -468,7 +468,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final page = Field<int>('page')
-  ///   ..lessThan(totalPages, message: 'Página inválida');
+  ///   .lessThan(totalPages, message: 'Página inválida');
   /// ```
   Field<int> lessThan(
     int maxValue, {
@@ -492,7 +492,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final index = Field<int>('index')
-  ///   ..nonnegative(message: 'Índice não pode ser negativo');
+  ///   .nonnegative(message: 'Índice não pode ser negativo');
   /// ```
   Field<int> nonnegative({String message = '', bool exposed = false}) {
     return addValidator(
@@ -513,7 +513,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final boxes = Field<int>('boxes')
-  ///   ..multipleOf(6, message: 'Quantidade deve ser múltiplo de 6');
+  ///   .multipleOf(6, message: 'Quantidade deve ser múltiplo de 6');
   /// ```
   Field<int> multipleOf(
     int divisor, {
@@ -540,7 +540,7 @@ extension IntFieldValidators on Field<int> {
   /// Example:
   /// ```dart
   /// final quantity = Field<int>('quantity')
-  ///   ..step(10, message: 'Quantidade deve ser múltiplo de 10');
+  ///   .step(10, message: 'Quantidade deve ser múltiplo de 10');
   /// ```
   Field<int> step(int stepValue, {String message = '', bool exposed = false}) {
     return multipleOf(stepValue, message: message, exposed: exposed);
@@ -561,7 +561,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final price = Field<double>('price')
-  ///   ..required(message: 'Informe o preço');
+  ///   .required(message: 'Informe o preço');
   /// ```
   Field<double> required({String message = '', bool exposed = false}) {
     return addValidator(message, (val) => val == null, exposedMessage: exposed);
@@ -578,7 +578,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final price = Field<double>('price')
-  ///   ..min(0.01, message: 'Preço mínimo: R$ 0,01');
+  ///   .min(0.01, message: 'Preço mínimo: R$ 0,01');
   /// ```
   Field<double> min(
     double minValue, {
@@ -603,7 +603,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final discount = Field<double>('discount')
-  ///   ..max(1.0, message: 'Desconto máximo: 100%');
+  ///   .max(1.0, message: 'Desconto máximo: 100%');
   /// ```
   Field<double> max(
     double maxValue, {
@@ -629,7 +629,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final rate = Field<double>('rate')
-  ///   ..range(0.0, 1.0, message: 'Taxa deve estar entre 0 e 1');
+  ///   .range(0.0, 1.0, message: 'Taxa deve estar entre 0 e 1');
   /// ```
   Field<double> range(
     double minValue,
@@ -654,7 +654,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final weight = Field<double>('weight')
-  ///   ..positive(message: 'Peso deve ser positivo');
+  ///   .positive(message: 'Peso deve ser positivo');
   /// ```
   Field<double> positive({String message = '', bool exposed = false}) {
     return addValidator(
@@ -674,7 +674,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final offset = Field<double>('offset')
-  ///   ..negative(message: 'Offset deve ser negativo');
+  ///   .negative(message: 'Offset deve ser negativo');
   /// ```
   Field<double> negative({String message = '', bool exposed = false}) {
     return addValidator(
@@ -695,7 +695,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final amount = Field<double>('amount')
-  ///   ..greaterThan(0.0, message: 'Valor deve ser maior que zero');
+  ///   .greaterThan(0.0, message: 'Valor deve ser maior que zero');
   /// ```
   Field<double> greaterThan(
     double minValue, {
@@ -720,7 +720,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final probability = Field<double>('probability')
-  ///   ..lessThan(1.0, message: 'Probabilidade deve ser menor que 1');
+  ///   .lessThan(1.0, message: 'Probabilidade deve ser menor que 1');
   /// ```
   Field<double> lessThan(
     double maxValue, {
@@ -744,7 +744,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final balance = Field<double>('balance')
-  ///   ..nonnegative(message: 'Saldo não pode ser negativo');
+  ///   .nonnegative(message: 'Saldo não pode ser negativo');
   /// ```
   Field<double> nonnegative({String message = '', bool exposed = false}) {
     return addValidator(
@@ -765,7 +765,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final price = Field<double>('price')
-  ///   ..multipleOf(0.5, message: 'Valor deve ser múltiplo de R$ 0,50');
+  ///   .multipleOf(0.5, message: 'Valor deve ser múltiplo de R$ 0,50');
   /// ```
   Field<double> multipleOf(
     double divisor, {
@@ -792,7 +792,7 @@ extension DoubleFieldValidators on Field<double> {
   /// Example:
   /// ```dart
   /// final volume = Field<double>('volume')
-  ///   ..step(0.25, message: 'Volume deve ser múltiplo de 0.25');
+  ///   .step(0.25, message: 'Volume deve ser múltiplo de 0.25');
   /// ```
   Field<double> step(
     double stepValue, {

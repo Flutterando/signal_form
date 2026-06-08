@@ -18,7 +18,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final birthDate = Field<DateTime>('birthDate')
-  ///   ..required(message: 'Informe sua data de nascimento');
+  ///   .required(message: 'Informe sua data de nascimento');
   /// ```
   Field<DateTime> required({String message = '', bool exposed = false}) {
     return addValidator(message, (val) => val == null, exposedMessage: exposed);
@@ -38,7 +38,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final endDate = Field<DateTime>('endDate')
-  ///   ..after(
+  ///   .after(
   ///     (valueOf) => valueOf<DateTime>('startDate').value,
   ///     message: 'Data final deve ser após a data inicial',
   ///   );
@@ -68,7 +68,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final eventDate = Field<DateTime>('eventDate')
-  ///   ..afterDate(DateTime.now(), message: 'Evento deve ser no futuro');
+  ///   .afterDate(DateTime.now(), message: 'Evento deve ser no futuro');
   /// ```
   Field<DateTime> afterDate(
     DateTime date, {
@@ -96,7 +96,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final startDate = Field<DateTime>('startDate')
-  ///   ..before(
+  ///   .before(
   ///     (valueOf) => valueOf<DateTime>('endDate').value,
   ///     message: 'Data inicial deve ser antes da data final',
   ///   );
@@ -126,7 +126,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final birthDate = Field<DateTime>('birthDate')
-  ///   ..beforeDate(DateTime.now(), message: 'Data de nascimento inválida');
+  ///   .beforeDate(DateTime.now(), message: 'Data de nascimento inválida');
   /// ```
   Field<DateTime> beforeDate(
     DateTime date, {
@@ -150,7 +150,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final birthDate = Field<DateTime>('birthDate')
-  ///   ..inPast(message: 'Data de nascimento deve ser no passado');
+  ///   .inPast(message: 'Data de nascimento deve ser no passado');
   /// ```
   Field<DateTime> inPast({String message = '', bool exposed = false}) {
     return addValidator(
@@ -170,7 +170,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final expiryDate = Field<DateTime>('expiryDate')
-  ///   ..inFuture(message: 'Data de validade deve ser no futuro');
+  ///   .inFuture(message: 'Data de validade deve ser no futuro');
   /// ```
   Field<DateTime> inFuture({String message = '', bool exposed = false}) {
     return addValidator(
@@ -192,7 +192,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final checkIn = Field<DateTime>('checkIn')
-  ///   ..between(
+  ///   .between(
   ///     DateTime(2024, 1, 1),
   ///     DateTime(2024, 12, 31),
   ///     message: 'Check-in deve ser em 2024',
@@ -222,7 +222,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final startDate = Field<DateTime>('startDate')
-  ///   ..greaterThanOrEqualTo(DateTime(2020, 1, 1),
+  ///   .greaterThanOrEqualTo(DateTime(2020, 1, 1),
   ///       message: 'Data deve ser a partir de 01/01/2020');
   /// ```
   Field<DateTime> greaterThanOrEqualTo(
@@ -248,7 +248,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final endDate = Field<DateTime>('endDate')
-  ///   ..greaterThan(DateTime.now(), message: 'Deve ser após hoje');
+  ///   .greaterThan(DateTime.now(), message: 'Deve ser após hoje');
   /// ```
   Field<DateTime> greaterThan(
     DateTime minDate, {
@@ -273,7 +273,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final birthDate = Field<DateTime>('birthDate')
-  ///   ..lessThanOrEqualTo(DateTime.now(),
+  ///   .lessThanOrEqualTo(DateTime.now(),
   ///       message: 'Data não pode ser no futuro');
   /// ```
   Field<DateTime> lessThanOrEqualTo(
@@ -299,7 +299,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final deadline = Field<DateTime>('deadline')
-  ///   ..lessThan(DateTime(2025, 1, 1), message: 'Deve ser antes de 2025');
+  ///   .lessThan(DateTime(2025, 1, 1), message: 'Deve ser antes de 2025');
   /// ```
   Field<DateTime> lessThan(
     DateTime maxDate, {
@@ -327,7 +327,7 @@ extension DateTimeFieldValidators on Field<DateTime> {
   /// Example:
   /// ```dart
   /// final date = Field<DateTime>('date')
-  ///   ..inclusiveBetween(
+  ///   .inclusiveBetween(
   ///     DateTime(2024, 6, 1),
   ///     DateTime(2024, 6, 30),
   ///     message: 'Data deve estar em junho de 2024',

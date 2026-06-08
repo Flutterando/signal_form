@@ -162,6 +162,7 @@ form.resetField('email');          // reset one field
 form.patchValue({'name': 'John'}); // set multiple values
 form.setValue('email', 'a@b.com');
 form.toJson();                     // { name: 'John', email: 'a@b.com', ... }
+form.toJson(omitNulls: true);      // same, but null fields and empty nested groups are pruned
 form.errors;                       // Map<String, String> of current errors
 form.valid;                        // true if errors is empty
 form.isDirty;                      // true if any field is dirty
@@ -206,6 +207,21 @@ form.fields.account.email.value;
 
 // toJson produces nested objects:
 // { account: { email: '...', password: '...' }, profile: { name: '...', age: 0 } }
+```
+
+#### Conditional group — `applyWhen`
+
+Pass `applyWhen:` to apply a shared condition to **every field** inside the group. All fields only validate when the condition is met.
+
+```dart
+final form = formCtrl(() => (
+  hasBilling: Field<bool>('hasBilling', false),
+  billing: formGroup('billing', () => (
+    address: Field<String>('address').required(),
+    city: Field<String>('city').required(),
+  ), applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true),
+));
+// address and city validate only when hasBilling is true
 ```
 
 ---
@@ -324,6 +340,65 @@ Field<String>('coupon').when(
   message: 'Coupon is required for premium plan',
 );
 ```
+
+---
+
+## Conditional routing — `switchWith`
+
+Route an entire set of validators based on a key derived from another field. Only the matching case runs; the rest are skipped.
+
+```dart
+final form = formCtrl(() => (
+  country: Field<String>('country', 'BR')
+    .oneOf(['BR', 'US', 'EU'], message: 'Invalid country'),
+  doc: Field<String>('doc')
+    .switchWith<String>(
+      (valueOf) => valueOf<String>('country').value,
+      {
+        'BR': (f) => f.validCPF(message: 'Invalid CPF'),
+        'US': (f) => f.addValidator('Invalid SSN', (v) => v == null || v.length != 9),
+        'EU': (f) => f.addValidator('Invalid VAT', (v) => v == null || v.length < 5),
+      },
+      orElse: (f) => f.required(message: 'Document required'),
+      dependsOn: ['country'],
+    ),
+));
+```
+
+| Parameter | Description |
+|---|---|
+| `keySelector` | Function that returns the active case key from other fields |
+| `cases` | Map from key value to validator builder — only the matching entry runs |
+| `orElse` | Fallback builder that runs when no case matches the current key |
+| `dependsOn` | Field paths that, when changed, clear the current error and re-schedule validation |
+
+### Typed keys with sealed classes
+
+The key type `K` can be any Dart type. Using a sealed class (or enum) gives compile-time exhaustiveness: the IDE warns if a new subtype is added without a corresponding case.
+
+```dart
+sealed class Country { const Country(); }
+final class BR extends Country { const BR(); }
+final class US extends Country { const US(); }
+final class EU extends Country { const EU(); }
+
+Field<String>('doc').switchWith<Country>(
+  (valueOf) => switch (valueOf<String>('country').value) {
+    'BR' => const BR(),
+    'US' => const US(),
+    'EU' => const EU(),
+    _    => null,
+  },
+  {
+    const BR(): (f) => f.validCPF(message: 'Invalid CPF'),
+    const US(): (f) => f.addValidator('Invalid SSN', (v) => v == null || v.length != 9),
+    const EU(): (f) => f.addValidator('Invalid VAT', (v) => v == null || v.length < 5),
+  },
+  dependsOn: ['country'],
+)
+```
+
+`const` objects of the same type are canonicalized by Dart — `const BR() == const BR()` is `true` without overriding `operator==`.
 
 ---
 

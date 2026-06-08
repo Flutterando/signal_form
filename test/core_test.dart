@@ -866,4 +866,444 @@ void main() {
       expect(city.name, equals('user.address.city'));
     });
   });
+
+  // ===========================================================================
+  // FormController – toJson(omitNulls)
+  // ===========================================================================
+  group('FormController – toJson(omitNulls)', () {
+    test('inclui null por padrão', () {
+      final form = formCtrl(
+        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+      );
+      addTearDown(form.dispose);
+
+      final json = form.toJson();
+      expect(json['name'], equals('Alice'));
+      expect(json.containsKey('alias'), isTrue);
+      expect(json['alias'], isNull);
+    });
+
+    test('exclui folha nula com omitNulls: true', () {
+      final form = formCtrl(
+        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+      );
+      addTearDown(form.dispose);
+
+      final json = form.toJson(omitNulls: true);
+      expect(json['name'], equals('Alice'));
+      expect(json.containsKey('alias'), isFalse);
+    });
+
+    test('poda mapa aninhado todo nulo', () {
+      final form = formCtrl(() {
+        final address = formGroup(
+          'address',
+          () => (street: Field<String>('street'), city: Field<String>('city')),
+        );
+        return (address: address);
+      });
+      addTearDown(form.dispose);
+
+      final json = form.toJson(omitNulls: true);
+      expect(json.containsKey('address'), isFalse);
+    });
+
+    test('mantém mapa aninhado parcialmente preenchido', () {
+      final form = formCtrl(() {
+        final address = formGroup(
+          'address',
+          () => (street: Field<String>('street', 'Rua A'), city: Field<String>('city')),
+        );
+        return (address: address);
+      });
+      addTearDown(form.dispose);
+
+      final json = form.toJson(omitNulls: true);
+      expect(json['address'], isA<Map>());
+      expect(json['address']['street'], equals('Rua A'));
+      expect((json['address'] as Map).containsKey('city'), isFalse);
+    });
+
+    test('poda mapa avô quando filho e neto são todos nulos', () {
+      final form = formCtrl(() {
+        final billing = formGroup('billing', () {
+          final addr = formGroup('address', () => (street: Field<String>('street')));
+          return (address: addr);
+        });
+        return (billing: billing);
+      });
+      addTearDown(form.dispose);
+
+      final json = form.toJson(omitNulls: true);
+      expect(json.containsKey('billing'), isFalse);
+    });
+
+    test('cache independente — omitNulls e não-omitNulls não interferem', () {
+      final form = formCtrl(
+        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+      );
+      addTearDown(form.dispose);
+
+      final full = form.toJson();
+      final omitted = form.toJson(omitNulls: true);
+
+      expect(full.containsKey('alias'), isTrue);
+      expect(omitted.containsKey('alias'), isFalse);
+      expect(identical(form.toJson(), full), isTrue);
+      expect(identical(form.toJson(omitNulls: true), omitted), isTrue);
+    });
+
+    test('invalida ambos os caches ao mudar valor', () {
+      final form = formCtrl(
+        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+      );
+      addTearDown(form.dispose);
+
+      final before = form.toJson();
+      final beforeOmit = form.toJson(omitNulls: true);
+
+      form.fields.alias.value = 'Bob';
+
+      expect(identical(form.toJson(), before), isFalse);
+      expect(identical(form.toJson(omitNulls: true), beforeOmit), isFalse);
+      expect(form.toJson()['alias'], equals('Bob'));
+      expect(form.toJson(omitNulls: true)['alias'], equals('Bob'));
+    });
+  });
+
+  // ===========================================================================
+  // formGroup – applyWhen
+  // ===========================================================================
+  group('formGroup – applyWhen', () {
+    test('condição false pula validadores de todos os campos do grupo', () async {
+      final form = formCtrl(() {
+        final billing = formGroup(
+          'billing',
+          () => (
+            street: Field<String>('street').required(),
+            zip: Field<String>('zip').required(),
+          ),
+          applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
+        );
+        return (hasBilling: Field<bool>('hasBilling', false), billing: billing);
+      });
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.billing.street.error, isNull);
+      expect(form.fields.billing.zip.error, isNull);
+      expect(form.valid, isTrue);
+    });
+
+    test('condição true executa validadores de todos os campos do grupo', () async {
+      final form = formCtrl(() {
+        final billing = formGroup(
+          'billing',
+          () => (
+            street: Field<String>('street').required(),
+            zip: Field<String>('zip').required(),
+          ),
+          applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
+        );
+        return (hasBilling: Field<bool>('hasBilling', true), billing: billing);
+      });
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.billing.street.error, isNotNull);
+      expect(form.fields.billing.zip.error, isNotNull);
+      expect(form.valid, isFalse);
+    });
+
+    test('composição com applyWhen de campo — AND lógico', () async {
+      final form = formCtrl(() {
+        final billing = formGroup(
+          'billing',
+          () => (
+            street: Field<String>('street').applyWhen(
+              (valueOf) => valueOf<String>('mode').value == 'strict',
+              (f) => f.required(),
+            ),
+          ),
+          applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
+        );
+        return (
+          hasBilling: Field<bool>('hasBilling', true),
+          mode: Field<String>('mode', 'relaxed'),
+          billing: billing,
+        );
+      });
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.billing.street.error, isNull);
+
+      form.fields.mode.value = 'strict';
+      await form.trigger();
+      expect(form.fields.billing.street.error, isNotNull);
+
+      form.fields.hasBilling.value = false;
+      await form.trigger();
+      expect(form.fields.billing.street.error, isNull);
+    });
+
+    test('applyWhen de grupo funciona com validador assíncrono', () async {
+      final form = formCtrl(() {
+        final billing = formGroup(
+          'billing',
+          () => (zip: Field<String>('zip').addValidatorAsync('CEP inválido', (_) async => true)),
+          applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
+        );
+        return (hasBilling: Field<bool>('hasBilling', false), billing: billing);
+      });
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.billing.zip.error, isNull);
+
+      form.fields.hasBilling.value = true;
+      await form.trigger();
+      expect(form.fields.billing.zip.error, isNotNull);
+    });
+  });
+
+  // ===========================================================================
+  // Field – switchWith
+  // ===========================================================================
+  group('Field – switchWith', () {
+    test('case correto roda, outros são pulados', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode', 'BR'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {
+              'BR': (f) => f.addValidator('BR inválido', (v) => v == null || v.isEmpty),
+              'US': (f) => f.addValidator('US inválido', (v) => v == null || v.length < 9),
+            },
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, equals('BR inválido'));
+
+      form.fields.doc.value = 'qualquer';
+      await form.trigger();
+      expect(form.fields.doc.error, isNull);
+    });
+
+    test('N cases — três casos possíveis', () async {
+      final form = formCtrl(
+        () => (
+          type: Field<String>('type', 'A'),
+          value: Field<String>('value').switchWith<String>(
+            (valueOf) => valueOf<String>('type').value,
+            {
+              'A': (f) => f.addValidator('erro A', (v) => v == null),
+              'B': (f) => f.addValidator('erro B', (v) => v == null),
+              'C': (f) => f.addValidator('erro C', (v) => v == null),
+            },
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      for (final entry in {'A': 'erro A', 'B': 'erro B', 'C': 'erro C'}.entries) {
+        form.fields.type.value = entry.key;
+        form.fields.value.value = null;
+        await form.trigger();
+        expect(form.fields.value.error, equals(entry.value));
+      }
+    });
+
+    test('keySelector retorna null → campo válido', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {'BR': (f) => f.required()},
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, isNull);
+    });
+
+    test('keySelector retorna chave sem case e orElse é null → campo válido', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode', 'XX'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {'BR': (f) => f.required()},
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, isNull);
+    });
+
+    test('dependsOn: limpa erro quando campo observado muda', () {
+      fakeAsync((async) {
+        final form = formCtrl(
+          () => (
+            pais: Field<String>('pais', 'BR'),
+            doc: Field<String>('doc')
+                .validationMode(ValidationMode.onSubmit)
+                .switchWith<String>(
+                  (valueOf) => valueOf<String>('pais').value,
+                  {'BR': (f) => f.required(), 'US': (f) => f.required()},
+                  dependsOn: ['pais'],
+                ),
+          ),
+        );
+        addTearDown(form.dispose);
+
+        form.trigger();
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, isNotNull);
+
+        form.fields.pais.value = 'US';
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, isNull);
+      });
+    });
+
+    test('dependsOn com múltiplos campos — qualquer mudança limpa erro', () {
+      fakeAsync((async) {
+        final form = formCtrl(
+          () => (
+            a: Field<String>('a', 'x'),
+            b: Field<String>('b', 'y'),
+            doc: Field<String>('doc')
+                .validationMode(ValidationMode.onSubmit)
+                .switchWith<String>(
+                  (valueOf) => valueOf<String>('a').value,
+                  {'x': (f) => f.required()},
+                  dependsOn: ['a', 'b'],
+                ),
+          ),
+        );
+        addTearDown(form.dispose);
+
+        form.trigger();
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, isNotNull);
+
+        form.fields.b.value = 'z';
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, isNull);
+      });
+    });
+
+    test('re-valida em onChange após campo dependsOn mudar', () {
+      fakeAsync((async) {
+        final form = formCtrl(
+          () => (
+            pais: Field<String>('pais', 'BR'),
+            doc: Field<String>('doc', 'preenchido').switchWith<String>(
+              (valueOf) => valueOf<String>('pais').value,
+              {'BR': (f) => f.addValidator('cpf inválido', (v) => v != null && v.length < 11)},
+              dependsOn: ['pais'],
+            ),
+          ),
+        );
+        addTearDown(form.dispose);
+
+        form.trigger();
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, equals('cpf inválido'));
+
+        form.fields.pais.value = 'US';
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, isNull);
+
+        form.fields.pais.value = 'BR';
+        async.flushMicrotasks();
+        form.fields.doc.value = '123';
+        async.flushMicrotasks();
+        expect(form.fields.doc.error, equals('cpf inválido'));
+      });
+    });
+
+    test('sem dependsOn — erro persiste até próxima validação', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode', 'BR'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {'BR': (f) => f.required()},
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, isNotNull);
+
+      form.fields.mode.value = 'US';
+      expect(form.fields.doc.error, isNotNull);
+
+      await form.trigger();
+      expect(form.fields.doc.error, isNull);
+    });
+
+    test('orElse roda quando nenhum case corresponde', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode', 'XX'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {'BR': (f) => f.addValidator('erro BR', (v) => v == null)},
+            orElse: (f) => f.addValidator('modo inválido', (_) => true),
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, equals('modo inválido'));
+    });
+
+    test('orElse não roda quando case corresponde', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode', 'BR'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {'BR': (f) => f.addValidator('erro BR', (v) => v == null)},
+            orElse: (f) => f.addValidator('modo inválido', (_) => true),
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, equals('erro BR'));
+    });
+
+    test('orElse roda quando keySelector retorna null', () async {
+      final form = formCtrl(
+        () => (
+          mode: Field<String>('mode'),
+          doc: Field<String>('doc').switchWith<String>(
+            (valueOf) => valueOf<String>('mode').value,
+            {'BR': (f) => f.addValidator('erro BR', (v) => v == null)},
+            orElse: (f) => f.required(),
+          ),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await form.trigger();
+      expect(form.fields.doc.error, isNotNull);
+    });
+  });
 }

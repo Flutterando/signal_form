@@ -162,6 +162,7 @@ form.resetField('email');           // reseta um campo
 form.patchValue({'nome': 'João'});  // define múltiplos valores
 form.setValue('email', 'a@b.com');
 form.toJson();                      // { nome: 'João', email: 'a@b.com', ... }
+form.toJson(omitNulls: true);       // igual, mas campos null e grupos aninhados vazios são removidos
 form.errors;                        // Map<String, String> de erros atuais
 form.valid;                         // true se errors estiver vazio
 form.isDirty;                       // true se algum campo for dirty
@@ -206,6 +207,21 @@ form.fields.conta.email.value;
 
 // toJson gera objetos aninhados:
 // { conta: { email: '...', senha: '...' }, perfil: { nome: '...', idade: 0 } }
+```
+
+#### Grupo condicional — `applyWhen`
+
+Passe `applyWhen:` para aplicar uma condição compartilhada a **todos os campos** dentro do grupo. Os campos só validam quando a condição é satisfeita.
+
+```dart
+final form = formCtrl(() => (
+  temCobranca: Field<bool>('temCobranca', false),
+  cobranca: formGroup('cobranca', () => (
+    endereco: Field<String>('endereco').required(),
+    cidade: Field<String>('cidade').required(),
+  ), applyWhen: (valueOf) => valueOf<bool>('temCobranca').value == true),
+));
+// endereco e cidade só validam quando temCobranca for true
 ```
 
 ---
@@ -324,6 +340,65 @@ Field<String>('cupom').when(
   message: 'Cupom é obrigatório para o plano premium',
 );
 ```
+
+---
+
+## Roteamento condicional — `switchWith`
+
+Roteia um conjunto completo de validadores com base em uma chave derivada de outro campo. Apenas o caso correspondente é executado; os demais são ignorados.
+
+```dart
+final form = formCtrl(() => (
+  pais: Field<String>('pais', 'BR')
+    .oneOf(['BR', 'US', 'EU'], message: 'País inválido'),
+  doc: Field<String>('doc')
+    .switchWith<String>(
+      (valueOf) => valueOf<String>('pais').value,
+      {
+        'BR': (f) => f.validCPF(message: 'CPF inválido'),
+        'US': (f) => f.addValidator('SSN inválido', (v) => v == null || v.length != 9),
+        'EU': (f) => f.addValidator('VAT inválido', (v) => v == null || v.length < 5),
+      },
+      orElse: (f) => f.required(message: 'Documento obrigatório'),
+      dependsOn: ['pais'],
+    ),
+));
+```
+
+| Parâmetro | Descrição |
+|---|---|
+| `keySelector` | Função que retorna a chave do caso ativo a partir de outros campos |
+| `cases` | Mapa de chave → builder de validadores — apenas a entrada correspondente executa |
+| `orElse` | Builder de fallback que executa quando nenhum caso corresponde à chave atual |
+| `dependsOn` | Caminhos de campos que, ao mudar, limpam o erro atual e reagendam a validação |
+
+### Chaves tipadas com sealed classes
+
+O tipo `K` pode ser qualquer tipo Dart. Usar uma sealed class (ou enum) oferece exaustividade em tempo de compilação: o IDE alerta se um novo subtipo for adicionado sem um caso correspondente.
+
+```dart
+sealed class Pais { const Pais(); }
+final class BR extends Pais { const BR(); }
+final class US extends Pais { const US(); }
+final class EU extends Pais { const EU(); }
+
+Field<String>('doc').switchWith<Pais>(
+  (valueOf) => switch (valueOf<String>('pais').value) {
+    'BR' => const BR(),
+    'US' => const US(),
+    'EU' => const EU(),
+    _    => null,
+  },
+  {
+    const BR(): (f) => f.validCPF(message: 'CPF inválido'),
+    const US(): (f) => f.addValidator('SSN inválido', (v) => v == null || v.length != 9),
+    const EU(): (f) => f.addValidator('VAT inválido', (v) => v == null || v.length < 5),
+  },
+  dependsOn: ['pais'],
+)
+```
+
+Objetos `const` do mesmo tipo são canonicalizados pelo Dart — `const BR() == const BR()` é `true` sem precisar sobrescrever `operator==`.
 
 ---
 

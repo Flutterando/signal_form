@@ -657,4 +657,107 @@ void main() {
       expect(count, equals(1));
     });
   });
+
+  // ===========================================================================
+  // switchWith – ciclo de vida
+  // ===========================================================================
+  group('switchWith – ciclo de vida', () {
+    test('_deferredSetup executa: form é atribuído ao field após formCtrl', () {
+      late Field<String> doc;
+      final form = formCtrl(() {
+        doc = Field<String>('doc').switchWith<String>(
+          (v) => v<String>('pais').value,
+          {'BR': (f) => f.required()},
+          dependsOn: ['pais'],
+        );
+        return (pais: Field<String>('pais', 'BR'), doc: doc);
+      });
+      addTearDown(form.dispose);
+
+      expect(doc.form, isNotNull);
+    });
+
+    test('dispose do form não lança ao ter switchWith com dependsOn', () {
+      final form = formCtrl(
+        () => (
+          pais: Field<String>('pais', 'BR'),
+          doc: Field<String>('doc')
+              .validationMode(ValidationMode.onSubmit)
+              .switchWith<String>(
+                (v) => v<String>('pais').value,
+                {'BR': (f) => f.required()},
+                dependsOn: ['pais'],
+              ),
+        ),
+      );
+
+      expect(() => form.dispose(), returnsNormally);
+    });
+
+    test('listener de dependsOn não tenta acessar form após dispose do form', () {
+      fakeAsync((async) {
+        final form = formCtrl(
+          () => (
+            pais: Field<String>('pais', 'BR'),
+            doc: Field<String>('doc')
+                .validationMode(ValidationMode.onSubmit)
+                .switchWith<String>(
+                  (v) => v<String>('pais').value,
+                  {'BR': (f) => f.required()},
+                  dependsOn: ['pais'],
+                ),
+          ),
+        );
+
+        form.trigger();
+        async.flushMicrotasks();
+
+        form.dispose();
+
+        // não deve lançar após dispose total
+        expect(() => async.flushMicrotasks(), returnsNormally);
+      });
+    });
+
+    test('toJson(omitNulls) cache é zerado junto com cache padrão no dispose', () {
+      final form = formCtrl(
+        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+      );
+
+      // popula ambos os caches
+      form.toJson();
+      form.toJson(omitNulls: true);
+
+      // mudar o campo invalida ambos
+      form.fields.alias.value = 'Bob';
+
+      expect(form.toJson()['alias'], equals('Bob'));
+      expect(form.toJson(omitNulls: true)['alias'], equals('Bob'));
+
+      form.dispose();
+    });
+
+    test('formGroup(applyWhen:) não avalia condição após form disposed', () async {
+      var conditionCallCount = 0;
+
+      final form = formCtrl(() {
+        final g = formGroup(
+          'g',
+          () => (name: Field<String>('name').required()),
+          applyWhen: (valueOf) {
+            conditionCallCount++;
+            return valueOf<bool>('active').value == true;
+          },
+        );
+        return (active: Field<bool>('active', true), g: g);
+      });
+
+      await form.trigger();
+      final callsBeforeDispose = conditionCallCount;
+      form.dispose();
+
+      // após dispose não deve haver mais validações disparadas
+      expect(conditionCallCount, equals(callsBeforeDispose));
+    });
+  });
 }

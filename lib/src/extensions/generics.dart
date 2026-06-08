@@ -19,7 +19,7 @@ extension GenericFieldValidators<T> on Field<T> {
   /// Example:
   /// ```dart
   /// final score = Field<int>('score')
-  ///   ..must((v) => v != null && v >= 0 && v <= 100,
+  ///   .must((v) => v != null && v >= 0 && v <= 100,
   ///       message: 'Pontuação deve estar entre 0 e 100');
   /// ```
   Field<T> must(
@@ -48,7 +48,7 @@ extension GenericFieldValidators<T> on Field<T> {
   /// Example:
   /// ```dart
   /// final endDate = Field<DateTime>('endDate')
-  ///   ..mustWith(
+  ///   .mustWith(
   ///     (val, valueOf) {
   ///       final start = valueOf<DateTime>('startDate').value;
   ///       return val != null && start != null && val.isAfter(start);
@@ -79,7 +79,7 @@ extension GenericFieldValidators<T> on Field<T> {
   /// Example:
   /// ```dart
   /// final inviteCode = Field<String>('inviteCode')
-  ///   ..equalTo('PROMO2024', message: 'Código inválido');
+  ///   .equalTo('PROMO2024', message: 'Código inválido');
   /// ```
   Field<T> equalTo(T otherValue, {String message = '', bool exposed = false}) {
     return addValidator(
@@ -99,7 +99,7 @@ extension GenericFieldValidators<T> on Field<T> {
   /// Example:
   /// ```dart
   /// final unused = Field<String>('legacy')
-  ///   ..isNull(message: 'Este campo deve estar vazio');
+  ///   .isNull(message: 'Este campo deve estar vazio');
   /// ```
   Field<T> isNull({String message = '', bool exposed = false}) {
     return addValidator(message, (val) => val != null, exposedMessage: exposed);
@@ -119,5 +119,34 @@ extension GenericFieldValidators<T> on Field<T> {
   /// ```
   Field<T> isNotNull({String message = '', bool exposed = false}) {
     return addValidator(message, (val) => val == null, exposedMessage: exposed);
+  }
+
+  /// Validates that the value is one of the allowed values.
+  ///
+  /// An empty or null value passes (pair with `required` to also reject empty).
+  ///
+  /// Parameters:
+  /// * [allowedValues]: The list of accepted values of type [T].
+  /// * [message]: The error string shown when the value is not in the list.
+  /// * [exposed] (optional): When `true`, the rule appears in [Field.exposedRules].
+  ///
+  /// Returns `this` to allow method chaining.
+  ///
+  /// Example:
+  /// ```dart
+  /// final role = Field<String>('role')
+  ///   .oneOf(['admin', 'editor', 'viewer'], message: 'Perfil inválido');
+  /// ```
+  Field<T> oneOf(
+    List<T> allowedValues, {
+    String message = '',
+    bool exposed = false,
+  }) {
+    return addValidator('$message ${allowedValues.join(', ')}', (val) {
+      if (val == null) return false;
+      if (val is String && val.isEmpty) return false;
+      if (val is Iterable && val.isEmpty) return false;
+      return !allowedValues.contains(val);
+    }, exposedMessage: exposed);
   }
 }

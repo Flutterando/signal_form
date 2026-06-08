@@ -267,6 +267,66 @@ final form = formCtrl(() => (
 // { "personal": { "name": "...", "age": ... } }
 ```
 
+### Conditional Group Validation (`formGroup` + `applyWhen:`)
+Pass `applyWhen:` to `formGroup` to apply a shared condition to every field in the group. All fields inside only validate when the condition returns `true`.
+```dart
+final form = formCtrl(() => (
+  hasBilling: Field<bool>('hasBilling', false),
+  billing: formGroup('billing', () => (
+    address: Field<String>('address').required(),
+    city: Field<String>('city').required(),
+  ), applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true),
+));
+// address and city are validated only when hasBilling is true
+```
+- **Equivalent to**: calling `.applyWhen(condition, ...)` on every field inside the group manually.
+- **Composable**: fields inside the group can have their own additional `applyWhen` conditions; both conditions must be true for the validator to run.
+
+### Conditional Routing (`switchWith`)
+Route an entire set of validators based on a key derived from another field. Only the matching case runs; the rest are skipped.
+```dart
+final form = formCtrl(() => (
+  country: Field<String>('country', 'BR')
+      .oneOf(['BR', 'US', 'EU'], message: 'Invalid country'),
+  doc: Field<String>('doc').switchWith<String>(
+    (valueOf) => valueOf<String>('country').value,
+    {
+      'BR': (f) => f.validCPF(message: 'Invalid CPF'),
+      'US': (f) => f.addValidator('Invalid SSN', (v) => v == null || v.length != 9),
+      'EU': (f) => f.addValidator('Invalid VAT', (v) => v == null || v.length < 5),
+    },
+    orElse: (f) => f.required(message: 'Document required'),
+    dependsOn: ['country'],
+  ),
+));
+```
+- **`orElse`**: builder that runs when the selector returns a key not present in the map.
+- **`dependsOn: List<String>`**: field paths that, when changed, immediately clear the field's current error and re-schedule validation (in `onChange` mode). Required when the key selector reads a field that is not a direct ancestor — otherwise the routing may show a stale error.
+- **Typed keys**: `K` can be any type. Using a Dart 3 `sealed class` or `enum` as the key gives compile-time exhaustiveness — the IDE warns if a new subtype is added without a corresponding map entry.
+```dart
+sealed class Country { const Country(); }
+final class BR extends Country { const BR(); }
+final class US extends Country { const US(); }
+final class EU extends Country { const EU(); }
+
+Field<String>('doc').switchWith<Country>(
+  (valueOf) => switch (valueOf<String>('country').value) {
+    'BR' => const BR(),
+    'US' => const US(),
+    'EU' => const EU(),
+    _    => null,
+  },
+  {
+    const BR(): (f) => f.validCPF(message: 'Invalid CPF'),
+    const US(): (f) => f.addValidator('Invalid SSN', (v) => v == null || v.length != 9),
+    const EU(): (f) => f.addValidator('Invalid VAT', (v) => v == null || v.length < 5),
+  },
+  dependsOn: ['country'],
+)
+// const objects of the same type are canonicalized by Dart —
+// const BR() == const BR() is true without overriding operator==
+```
+
 ---
 
 ## 4. Built-in Form Widgets
@@ -449,6 +509,11 @@ When `form.submit()` or `form.trigger(shouldFocus: true, shouldScroll: true)` fa
 
 ### Data Extraction & DTOs (`toJson()`)
 - **Nested Maps**: `form.toJson()` returns a nested `Map<String, dynamic>` where dot-notation fields are automatically expanded (e.g., `'address.city'` becomes `{'address': {'city': '...'}}`).
+- **Omit nulls**: Pass `omitNulls: true` to strip null leaf values **and** prune any nested groups that become empty as a result. Useful for PATCH payloads where absent fields should not overwrite existing data.
+  ```dart
+  form.toJson();                 // { name: 'John', address: null }
+  form.toJson(omitNulls: true);  // { name: 'John' }  ← address removed
+  ```
 - **Non-Primitive Types**:
   - `DateTime`: If a field's type is `DateTime` and no custom transformer is defined, it is automatically serialized into its ISO 8601 string representation via `toIso8601String()`.
   - `List<T>` / `Iterable<T>`: If list items contain complex types, you must define a custom transformer. Otherwise, they are serialized as-is.

@@ -592,4 +592,90 @@ void main() {
       },
     );
   });
+
+  // ===========================================================================
+  // toJson(omitNulls) – desempenho
+  // ===========================================================================
+  group('Perf – toJson(omitNulls)', () {
+    test('cache hit em form com 200 campos retorna em < 1ms', () {
+      final form = formCtrl(() {
+        for (var i = 0; i < 200; i++) {
+          Field<String>('field_$i', i.isEven ? 'value_$i' : null);
+        }
+        return Field<String>('sentinel');
+      });
+      addTearDown(form.dispose);
+
+      form.toJson(omitNulls: true); // constrói o cache
+
+      final sw = Stopwatch()..start();
+      for (var i = 0; i < 1000; i++) {
+        form.toJson(omitNulls: true); // apenas hit de cache
+      }
+      sw.stop();
+
+      expect(
+        sw.elapsedMilliseconds,
+        lessThan(10),
+        reason: '1.000 cache hits devem ser quase instantâneos',
+      );
+    });
+
+    test('construção inicial com 200 campos nulos e poda leva < 100ms', () {
+      final sw = Stopwatch()..start();
+
+      for (var run = 0; run < 20; run++) {
+        final form = formCtrl(() {
+          for (var i = 0; i < 200; i++) {
+            formGroup('g$i', () => (f: Field<String>('val')));
+          }
+          return Field<String>('root');
+        });
+        form.toJson(omitNulls: true);
+        form.dispose();
+      }
+
+      sw.stop();
+      expect(
+        sw.elapsedMilliseconds,
+        lessThan(100),
+        reason: '20 formulários com 200 grupos nulos cada devem ser construídos e podados em < 100ms',
+      );
+    });
+  });
+
+  // ===========================================================================
+  // switchWith – desempenho
+  // ===========================================================================
+  group('Perf – switchWith', () {
+    test('trigger em form com 50 campos switchWith leva < 500ms', () async {
+      final form = formCtrl(() {
+        final selector = Field<String>('selector', 'A');
+        for (var i = 0; i < 50; i++) {
+          Field<String>('field_$i').switchWith<String>(
+            (valueOf) => valueOf<String>('selector').value,
+            {
+              'A': (f) => f.addValidator('err', (v) => v == null),
+              'B': (f) => f.addValidator('err', (v) => v == null),
+              'C': (f) => f.addValidator('err', (v) => v == null),
+            },
+          );
+        }
+        return selector;
+      });
+      addTearDown(form.dispose);
+
+      final sw = Stopwatch()..start();
+      for (var i = 0; i < 10; i++) {
+        await form.trigger();
+      }
+      sw.stop();
+
+      expect(
+        sw.elapsedMilliseconds,
+        lessThan(500),
+        reason: '10 trigger()s em form com 50 switchWith não devem ser lentos',
+      );
+    });
+  });
 }

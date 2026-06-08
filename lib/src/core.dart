@@ -54,6 +54,14 @@ class FormTracker {
   static List<Field> getCapturedFields() {
     return List.from(_currentContext?.fields ?? []);
   }
+
+  static int get currentFieldCount => _currentContext?.fields.length ?? 0;
+
+  static List<Field> getFieldsFrom(int startIndex) {
+    final fields = _currentContext?.fields;
+    if (fields == null || startIndex >= fields.length) return const [];
+    return fields.sublist(startIndex);
+  }
 }
 
 /// Defines a named group of fields within a [formCtrl] builder, scoping
@@ -64,25 +72,43 @@ class FormTracker {
 /// named `'address'` becomes `'address.city'`). Groups can be nested
 /// arbitrarily deep.
 ///
-/// [name] is the path segment to prepend to every nested field.
-/// [builder] is a function that creates and returns the grouped fields —
-/// any return type is accepted (record, class, list, etc.).
+/// Parameters:
+/// * [name]: The path segment segment prepended to nested fields.
+/// * [builder]: A function that creates and returns the grouped fields (must be a record).
+/// * [applyWhen] (optional): A condition function. When provided, validators of all fields created inside this group are only executed if the condition returns `true`.
 ///
-/// Returns the value produced by [builder], typically a record or object
-/// holding the created [Field] instances.
+/// Returns the record produced by [builder] holding the created [Field] instances.
 ///
 /// Example:
 /// ```dart
-/// final form = formCtrl(() =>
-///   final address = formGroup('address', () => (
-///     street: Field<String>('street'),
-///     city:   Field<String>('city'),
-///   ));
+/// final form = formCtrl(() {
+///   final hasDelivery = Field<bool>('hasDelivery', false);
+///   final delivery = formGroup(
+///     'delivery',
+///     () => (
+///       street: Field<String>('street').required(),
+///       city: Field<String>('city').required(),
+///     ),
+///     applyWhen: (valueOf) => valueOf<bool>('hasDelivery').value == true,
+///   );
+///   return (hasDelivery: hasDelivery, delivery: delivery);
+/// });
 /// ```
-T formGroup<T>(String name, T Function() builder) {
+T formGroup<T>(
+  String name,
+  T Function() builder, {
+  bool Function(ValueOf valueOf)? applyWhen,
+}) {
   FormTracker.pushPath(name);
+  final countBefore = FormTracker.currentFieldCount;
   try {
-    return builder();
+    final result = builder();
+    if (applyWhen != null) {
+      for (final field in FormTracker.getFieldsFrom(countBefore)) {
+        field._applyGroupCondition(applyWhen);
+      }
+    }
+    return result;
   } finally {
     FormTracker.popPath();
   }
@@ -162,7 +188,19 @@ class Field<T> extends ChangeNotifier {
 
   /// The [FormController] this field belongs to, set automatically when
   /// the field is captured by [formCtrl].
-  FormController<dynamic>? form;
+  FormController<dynamic>? _form;
+  FormController<dynamic>? get form => _form;
+  set form(FormController<dynamic>? fc) {
+    _form = fc;
+    if (fc != null) {
+      for (final setup in _deferredSetup) {
+        setup();
+      }
+      _deferredSetup.clear();
+    }
+  }
+
+  final List<void Function()> _deferredSetup = [];
 
   /// Optional [FocusNode] used by [invalidate] and [FormController.trigger]
   /// to request focus or scroll to this field when validation fails.
@@ -342,8 +380,8 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final password = Field<String>('password')
-  ///   ..addValidator('Min 8 chars',  (v) => v != null && v.length < 8,  exposedMessage: true)
-  ///   ..addValidator('Has uppercase',(v) => v != null && !v.contains(RegExp(r'[A-Z]')), exposedMessage: true);
+  ///   .addValidator('Min 8 chars',  (v) => v != null && v.length < 8,  exposedMessage: true)
+  ///   .addValidator('Has uppercase',(v) => v != null && !v.contains(RegExp(r'[A-Z]')), exposedMessage: true);
   ///
   /// for (final rule in password.exposedRules) {
   ///   print('${rule.isValid ? '✓' : '✗'} ${rule.message}');
@@ -387,7 +425,7 @@ class Field<T> extends ChangeNotifier {
   ///
   /// Example:
   /// ```dart
-  /// final phone = Field<String>('phone')..mask('(##) #####-####');
+  /// final phone = Field<String>('phone').mask('(##) #####-####');
   /// phone.value = '11999999999';
   /// print(phone.value); // '(11) 99999-9999'
   /// ```
@@ -440,7 +478,7 @@ class Field<T> extends ChangeNotifier {
   ///
   /// Example:
   /// ```dart
-  /// final email = Field<String>('email')..validationMode(ValidationMode.onBlur);
+  /// final email = Field<String>('email').validationMode(ValidationMode.onBlur);
   /// focusNode.addListener(() {
   ///   if (!focusNode.hasFocus) email.touch();
   /// });
@@ -498,8 +536,8 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final email = Field<String>('email')
-  ///   ..validationMode(ValidationMode.onBlur)
-  ///   ..addValidator('Email inválido', (v) => !v!.contains('@'));
+  ///   .validationMode(ValidationMode.onBlur)
+  ///   .addValidator('Email inválido', (v) => !v!.contains('@'));
   /// ```
   Field<T> validationMode(ValidationMode mode) {
     _validationMode = mode;
@@ -521,8 +559,8 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final search = Field<String>('search')
-  ///   ..debounce(const Duration(milliseconds: 300))
-  ///   ..addValidatorAsync('Sem resultados', (v) async {
+  ///   .debounce(const Duration(milliseconds: 300))
+  ///   .addValidatorAsync('Sem resultados', (v) async {
   ///     final results = await api.search(v);
   ///     return results.isEmpty;
   ///   });
@@ -549,7 +587,7 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final phone = Field<String>('phone')
-  ///   ..mask('(##) #####-####');
+  ///   .mask('(##) #####-####');
   ///
   /// phone.value = '11999999999';
   /// print(phone.value);     // '(11) 99999-9999'
@@ -599,7 +637,7 @@ class Field<T> extends ChangeNotifier {
   ///   f.addValidator('Obrigatório', (v) => v == null || v.isEmpty);
   /// }
   ///
-  /// final name = Field<String>('name')..apply(requiredString);
+  /// final name = Field<String>('name').apply(requiredString);
   /// ```
   Field<T> apply(void Function(Field<T> self) buildValidators) {
     buildValidators(this);
@@ -625,7 +663,7 @@ class Field<T> extends ChangeNotifier {
   /// final form = formCtrl(() {
   ///   final hasCoupon = Field<bool>('hasCoupon');
   ///   final couponCode = Field<String>('couponCode')
-  ///     ..applyWhen(
+  ///     .applyWhen(
   ///       (valueOf) => valueOf<bool>('hasCoupon').value == true,
   ///       (f) => f.addValidator('Código obrigatório', (v) => v == null || v.isEmpty),
   ///     );
@@ -648,6 +686,105 @@ class Field<T> extends ChangeNotifier {
     return this;
   }
 
+  void _applyGroupCondition(bool Function(ValueOf valueOf) groupCondition) {
+    for (var i = 0; i < _syncValidators.length; i++) {
+      final existing = _syncValidators[i];
+      _syncValidators[i] = (
+        message: existing.message,
+        dynamicMessage: existing.dynamicMessage,
+        exposedMessage: existing.exposedMessage,
+        hasError: (val) {
+          if (form == null) return false;
+          Field<O> valueOf<O>(String path) => form!.getField<O>(path);
+          if (!groupCondition(valueOf)) return false;
+          return existing.hasError(val);
+        },
+      );
+    }
+    for (var i = 0; i < _asyncValidators.length; i++) {
+      final existing = _asyncValidators[i];
+      _asyncValidators[i] = (
+        message: existing.message,
+        dynamicMessage: existing.dynamicMessage,
+        hasError: (val) async {
+          if (form == null) return false;
+          Field<O> valueOf<O>(String path) => form!.getField<O>(path);
+          if (!groupCondition(valueOf)) return false;
+          return existing.hasError(val);
+        },
+      );
+    }
+  }
+
+  /// Registers multiple sets of conditional validators, where only one set is
+  /// active at a time based on a selected key.
+  ///
+  /// This method allows you to dynamically switch which validation rules are
+  /// applied to this field depending on the current state of other form fields
+  /// or the field itself.
+  ///
+  /// Parameters:
+  /// * [keySelector]: A function that evaluates the form state (via `valueOf`) and returns a key `K?` to select the active case.
+  /// * [cases]: A map matching keys to builder functions that register validators for each case.
+  /// * [orElse] (optional): A fallback builder function executed when [keySelector] returns `null` or a key not matching any in [cases].
+  /// * [dependsOn] (optional): A list of field paths to observe. Any change to these fields clears this field's error and schedules re-validation in [ValidationMode.onChange].
+  ///
+  /// Returns `this` to allow method chaining.
+  ///
+  /// Example:
+  /// ```dart
+  /// final form = formCtrl(() {
+  ///   final type = Field<String>('type')
+  ///     .oneOf(['physical', 'legal'], message: 'Tipo inválido');
+  ///   final document = Field<String>('document')
+  ///     .switchWith<String>(
+  ///       (valueOf) => valueOf<String>('type').value,
+  ///       {
+  ///         'physical': (f) => f.required('CPF obrigatório'),
+  ///         'legal': (f) => f.required('CNPJ obrigatório'),
+  ///       },
+  ///       orElse: (f) => f.required('Documento obrigatório'),
+  ///       dependsOn: ['type'],
+  ///     );
+  ///   return (type: type, document: document);
+  /// });
+  /// ```
+  Field<T> switchWith<K>(
+    K? Function(ValueOf valueOf) keySelector,
+    Map<K, void Function(Field<T> self)> cases, {
+    void Function(Field<T> self)? orElse,
+    List<String>? dependsOn,
+  }) {
+    for (final entry in cases.entries) {
+      applyWhen((valueOf) => keySelector(valueOf) == entry.key, entry.value);
+    }
+
+    if (orElse != null) {
+      applyWhen((valueOf) => !cases.containsKey(keySelector(valueOf)), orElse);
+    }
+
+    if (dependsOn != null && dependsOn.isNotEmpty) {
+      _deferredSetup.add(() {
+        for (final path in dependsOn) {
+          final watched = form?.tryGetField<dynamic>(path);
+          if (watched == null) continue;
+          watched.addListener(() {
+            if (_isDisposed) return;
+            if (_error != null) {
+              _error = null;
+              _notifyIfMounted();
+              form?._invalidateCache();
+            }
+            if (_validationMode == ValidationMode.onChange) {
+              _scheduleValidation();
+            }
+          });
+        }
+      });
+    }
+    return this;
+  }
+
   /// Validates each item of an [Iterable] value using per-item validators.
   ///
   /// Use this on a `Field<List<I>>` (or any iterable) to declare validators
@@ -665,7 +802,7 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final tags = Field<List<String>>('tags')
-  ///   ..applyEach<String>(
+  ///   .applyEach<String>(
   ///     (item) => item.addValidator('Tag muito curta', (v) => v != null && v.length < 2),
   ///     formatError: (i, msg) => 'Tag[$i]: $msg',
   ///   );
@@ -747,9 +884,9 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final age = Field<int>('age')
-  ///   ..addValidator('Obrigatório',  (v) => v == null)
-  ///   ..addValidator('Maior de 18', (v) => v != null && v < 18)
-  ///   ..addValidator('Menor de 120',(v) => v != null && v > 120);
+  ///   .addValidator('Obrigatório',  (v) => v == null)
+  ///   .addValidator('Maior de 18', (v) => v != null && v < 18)
+  ///   .addValidator('Menor de 120',(v) => v != null && v > 120);
   /// ```
   Field<T> addValidator(
     String message,
@@ -793,8 +930,8 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final username = Field<String>('username')
-  ///   ..addValidator('Obrigatório', (v) => v == null || v.isEmpty)
-  ///   ..addValidatorAsync('Username já em uso', (v) async {
+  ///   .addValidator('Obrigatório', (v) => v == null || v.isEmpty)
+  ///   .addValidatorAsync('Username já em uso', (v) async {
   ///     final exists = await userRepository.exists(v!);
   ///     return exists; // true = error
   ///   });
@@ -836,7 +973,7 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final birthDate = Field<DateTime>('birthDate')
-  ///   ..transformToJson((v) => v?.toIso8601String().substring(0, 10));
+  ///   .transformToJson((v) => v?.toIso8601String().substring(0, 10));
   ///
   /// birthDate.value = DateTime(1990, 3, 15);
   /// // form.toJson() → {'birthDate': '1990-03-15'}
@@ -860,7 +997,7 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final name = Field<String>('name')
-  ///   ..addValidator('Obrigatório', (v) => v == null || v.isEmpty);
+  ///   .addValidator('Obrigatório', (v) => v == null || v.isEmpty);
   ///
   /// name.value = '';
   /// print(name.validate()); // false
@@ -899,8 +1036,8 @@ class Field<T> extends ChangeNotifier {
   /// Example:
   /// ```dart
   /// final username = Field<String>('username')
-  ///   ..addValidator('Obrigatório', (v) => v == null || v.isEmpty)
-  ///   ..addValidatorAsync('Já em uso', (v) async => await api.exists(v!));
+  ///   .addValidator('Obrigatório', (v) => v == null || v.isEmpty)
+  ///   .addValidatorAsync('Já em uso', (v) async => await api.exists(v!));
   ///
   /// final isValid = await username.validateAsync();
   /// print(username.error); // null or error message
@@ -1082,6 +1219,7 @@ class FormController<T> extends ChangeNotifier {
 
   // Cache for toJson and errors
   Map<String, dynamic>? _jsonCache;
+  Map<String, dynamic>? _jsonCacheOmitNulls;
   Map<String, String>? _errorsCache;
 
   /// Called when [submit] starts executing [onSubmit], after all validators
@@ -1184,6 +1322,7 @@ class FormController<T> extends ChangeNotifier {
 
   void _invalidateCache() {
     _jsonCache = null;
+    _jsonCacheOmitNulls = null;
     _errorsCache = null;
   }
 
@@ -1548,35 +1687,47 @@ class FormController<T> extends ChangeNotifier {
 
   /// Serializes all field values to a nested `Map<String, dynamic>`.
   ///
-  /// Dot-notation field paths are expanded into nested maps:
-  /// a field named `'address.city'` appears as `{'address': {'city': ...}}`.
+  /// Dot-notation field paths are expanded into nested maps (e.g., a field
+  /// named `'address.city'` appears as `{'address': {'city': ...}}`).
   ///
   /// Each field's [Field.jsonValue] is used, so mask stripping and custom
   /// [Field.transformToJson] transformers are applied automatically.
   ///
-  /// The result is cached and invalidated whenever any field value changes.
-  /// Repeated calls with no intervening changes return the same `Map` instance
-  /// (identity equality), making this O(1) after the first call.
+  /// Parameters:
+  /// * [omitNulls]: When `true`, fields with `null` values are excluded from the output.
+  /// Any empty nested maps resulting from pruned null fields are also pruned.
+  /// Defaults to `false`.
+  ///
+  /// Returns a nested `Map<String, dynamic>` containing the serialized values.
   ///
   /// Example:
   /// ```dart
   /// final form = formCtrl(() => (
-  ///   name:  Field<String>('name', 'Alice'),
+  ///   name:  Field<String>('name'),
   ///   email: Field<String>('email', 'alice@example.com'),
   /// ));
   ///
-  /// print(form.toJson()); // {'name': 'Alice', 'email': 'alice@example.com'}
+  /// print(form.toJson());                  // {'name': null, 'email': 'alice@example.com'}
+  /// print(form.toJson(omitNulls: true));   // {'email': 'alice@example.com'}
   /// ```
-  Map<String, dynamic> toJson() {
-    if (_jsonCache != null) {
-      return _jsonCache!;
-    }
+  Map<String, dynamic> toJson({bool omitNulls = false}) {
+    if (!omitNulls && _jsonCache != null) return _jsonCache!;
+    if (omitNulls && _jsonCacheOmitNulls != null) return _jsonCacheOmitNulls!;
 
     final map = <String, dynamic>{};
     for (var field in _capturedFields) {
-      _putNestedValue(map, field.pathSegments, field.jsonValue);
+      final v = field.jsonValue;
+      if (omitNulls && v == null) continue;
+      _putNestedValue(map, field.pathSegments, v);
     }
-    _jsonCache = map;
+
+    if (omitNulls) _pruneEmptyMaps(map);
+
+    if (omitNulls) {
+      _jsonCacheOmitNulls = map;
+    } else {
+      _jsonCache = map;
+    }
     return map;
   }
 
@@ -1591,6 +1742,21 @@ class FormController<T> extends ChangeNotifier {
       current = current[keys[i]];
     }
     current[keys.last] = value;
+  }
+
+  void _pruneEmptyMaps(Map<String, dynamic> map) {
+    final keysToRemove = <String>[];
+    for (final entry in map.entries) {
+      if (entry.value is Map<String, dynamic>) {
+        _pruneEmptyMaps(entry.value as Map<String, dynamic>);
+        if ((entry.value as Map<String, dynamic>).isEmpty) {
+          keysToRemove.add(entry.key);
+        }
+      }
+    }
+    for (final key in keysToRemove) {
+      map.remove(key);
+    }
   }
 
   /// Removes all internal field listeners and disposes every captured [Field].
@@ -1635,7 +1801,7 @@ class FormController<T> extends ChangeNotifier {
 /// final form = formCtrl(() => (
 ///   name:  Field<String>('name'),
 ///   email: Field<String>('email')
-///     ..addValidator('Email inválido', (v) => !v!.contains('@')),
+///     .addValidator('Email inválido', (v) => !v!.contains('@')),
 /// ));
 ///
 /// form.fields.name.value = 'Alice';
