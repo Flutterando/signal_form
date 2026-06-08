@@ -1,0 +1,869 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:signal_form/signal_form.dart';
+
+void main() {
+  // ===========================================================================
+  // Field – estado inicial
+  // ===========================================================================
+  group('Field – estado inicial', () {
+    test('valor começa nulo quando nenhum initialValue é fornecido', () {
+      final field = Field<String>('name');
+      addTearDown(field.dispose);
+      expect(field.value, isNull);
+      expect(field.initialValue, isNull);
+      expect(field.isDirty, isFalse);
+      expect(field.isTouched, isFalse);
+      expect(field.isLoading, isFalse);
+      expect(field.error, isNull);
+    });
+
+    test('initialValue é atribuído corretamente', () {
+      final field = Field<String>('name', 'Wellington');
+      addTearDown(field.dispose);
+      expect(field.value, equals('Wellington'));
+      expect(field.initialValue, equals('Wellington'));
+      expect(field.isDirty, isFalse);
+    });
+
+    test('name é composto pelo caminho completo via formGroup', () {
+      late Field<String> inner;
+      final form = formCtrl(() {
+        inner = formGroup('address', () => Field<String>('city'));
+        return inner;
+      });
+      addTearDown(form.dispose);
+      expect(inner.name, equals('address.city'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – setter value
+  // ===========================================================================
+  group('Field – value setter', () {
+    test('isDirty fica true quando valor muda do inicial', () {
+      final field = Field<String>('email', 'a@b.com');
+      addTearDown(field.dispose);
+      field.value = 'x@y.com';
+      expect(field.isDirty, isTrue);
+    });
+
+    test('isDirty volta a false quando valor retorna ao inicial', () {
+      final field = Field<String>('email', 'a@b.com');
+      addTearDown(field.dispose);
+      field.value = 'x@y.com';
+      field.value = 'a@b.com';
+      expect(field.isDirty, isFalse);
+    });
+
+    test('notifyListeners é chamado quando valor muda', () {
+      final field = Field<String>('email');
+      addTearDown(field.dispose);
+      var notified = false;
+      field.addListener(() => notified = true);
+      field.value = 'test';
+      expect(notified, isTrue);
+    });
+
+    test('notifyListeners NÃO é chamado quando valor não muda', () {
+      final field = Field<String>('email', 'same');
+      addTearDown(field.dispose);
+      var count = 0;
+      field.addListener(() => count++);
+      field.value = 'same';
+      expect(count, equals(0));
+    });
+
+    test('onValueChanged callback é acionado com valores corretos', () {
+      final field = Field<String>('email', 'old');
+      addTearDown(field.dispose);
+      String? capturedOld, capturedNew;
+      field.onValueChanged = (o, n) {
+        capturedOld = o;
+        capturedNew = n;
+      };
+      field.value = 'new';
+      expect(capturedOld, equals('old'));
+      expect(capturedNew, equals('new'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – touch
+  // ===========================================================================
+  group('Field – touch', () {
+    test('touch() marca isTouched como true', () {
+      final field = Field<String>('name');
+      addTearDown(field.dispose);
+      field.touch();
+      expect(field.isTouched, isTrue);
+    });
+
+    test('touch() não notifica duas vezes', () {
+      final field = Field<String>('name');
+      addTearDown(field.dispose);
+      var count = 0;
+      field.addListener(() => count++);
+      field.touch();
+      field.touch();
+      expect(count, equals(1));
+    });
+  });
+
+  // ===========================================================================
+  // Field – reset() (propriedade por propriedade)
+  // ===========================================================================
+  group('Field – reset()', () {
+    late Field<String> field;
+
+    setUp(() {
+      field = Field<String>('name', 'init');
+      field.value = 'changed';
+      field.touch();
+      field.invalidate('erro');
+    });
+
+    tearDown(() => field.dispose());
+
+    test('restaura value para initialValue', () {
+      field.reset();
+      expect(field.value, equals('init'));
+    });
+
+    test('limpa error', () {
+      field.reset();
+      expect(field.error, isNull);
+    });
+
+    test('limpa isDirty', () {
+      field.reset();
+      expect(field.isDirty, isFalse);
+    });
+
+    test('limpa isTouched', () {
+      field.reset();
+      expect(field.isTouched, isFalse);
+    });
+
+    test('limpa isLoading', () {
+      field.isLoading = true;
+      field.reset();
+      expect(field.isLoading, isFalse);
+    });
+  });
+
+  // ===========================================================================
+  // Field – validate (sync)
+  // ===========================================================================
+  group('Field – validação síncrona', () {
+    test('retorna true quando não há validadores', () {
+      final field = Field<String>('name');
+      addTearDown(field.dispose);
+      expect(field.validate(), isTrue);
+    });
+
+    test('retorna false e seta error quando validador falha', () {
+      final field = Field<String>('name')
+        ..addValidator('Obrigatório', (v) => v == null || v.isEmpty);
+      addTearDown(field.dispose);
+      expect(field.validate(), isFalse);
+      expect(field.error, equals('Obrigatório'));
+    });
+
+    test('retorna true e limpa error quando validador passa', () {
+      final field = Field<String>('name')
+        ..addValidator('Obrigatório', (v) => v == null || v.isEmpty);
+      addTearDown(field.dispose);
+      field.value = 'Wellington';
+      expect(field.validate(), isTrue);
+      expect(field.error, isNull);
+    });
+
+    test('para no primeiro validador que falha', () {
+      final field = Field<String>('age')
+        ..addValidator('Erro 1', (_) => true)
+        ..addValidator('Erro 2', (_) => true);
+      addTearDown(field.dispose);
+      field.validate();
+      expect(field.error, equals('Erro 1'));
+    });
+
+    test('dynamicMessage é usado no lugar de message estática', () {
+      final field = Field<int>('qty')
+        ..addValidator(
+          '',
+          (v) => (v ?? 0) < 1,
+          dynamicMessage: (v) => 'Mínimo é 1, recebido: $v',
+        );
+      addTearDown(field.dispose);
+      field.value = 0;
+      field.validate();
+      expect(field.error, equals('Mínimo é 1, recebido: 0'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – validateAsync
+  // ===========================================================================
+  group('Field – validação assíncrona', () {
+    test('retorna false quando validação sync falha', () async {
+      final field = Field<String>('email')
+        ..addValidator('Sync error', (v) => true);
+      addTearDown(field.dispose);
+      final result = await field.validateAsync();
+      expect(result, isFalse);
+      expect(field.isLoading, isFalse);
+    });
+
+    test('executa validador async e seta error', () async {
+      final field = Field<String>('email')
+        ..addValidatorAsync('Email já cadastrado', (_) async => true);
+      addTearDown(field.dispose);
+      final result = await field.validateAsync();
+      expect(result, isFalse);
+      expect(field.error, equals('Email já cadastrado'));
+      expect(field.isLoading, isFalse);
+    });
+
+    test('isLoading fica true durante async e false ao terminar', () {
+      fakeAsync((fake) {
+        final completer = Completer<bool>();
+        final field = Field<String>('email')
+          ..addValidatorAsync('', (_) => completer.future);
+        addTearDown(field.dispose);
+
+        field.validateAsync();
+        expect(field.isLoading, isTrue);
+
+        completer.complete(false);
+        fake.flushMicrotasks();
+        expect(field.isLoading, isFalse);
+      });
+    });
+
+    test('race condition: versão antiga é descartada', () {
+      fakeAsync((fake) {
+        var callCount = 0;
+        final field = Field<String>('email')
+          ..addValidatorAsync('err', (_) async {
+            callCount++;
+            await Future.delayed(const Duration(milliseconds: 50));
+            return true;
+          });
+        addTearDown(field.dispose);
+
+        field.validateAsync(); // versão 1
+        fake.elapse(const Duration(milliseconds: 10));
+        field.validateAsync(); // versão 2
+
+        fake.elapse(const Duration(milliseconds: 100));
+        fake.flushMicrotasks();
+
+        expect(field.error, equals('err'));
+        expect(callCount, equals(2));
+      });
+    });
+
+    test('onValidationStart e onValidationEnd são chamados', () async {
+      var started = false;
+      bool? endedValid;
+      String? endedError;
+
+      final field = Field<String>('x')
+        ..addValidator('fail', (_) => true);
+      addTearDown(field.dispose);
+
+      field.onValidationStart = () => started = true;
+      field.onValidationEnd = (isValid, error) {
+        endedValid = isValid;
+        endedError = error;
+      };
+
+      await field.validateAsync();
+
+      expect(started, isTrue);
+      expect(endedValid, isFalse);
+      expect(endedError, equals('fail'));
+    });
+
+    test('onValidationEnd(true, null) quando não há validadores', () async {
+      final field = Field<String>('x');
+      addTearDown(field.dispose);
+      bool? isValid;
+      String? error = 'sentinela';
+      field.onValidationEnd = (v, e) {
+        isValid = v;
+        error = e;
+      };
+
+      await field.validateAsync();
+
+      expect(isValid, isTrue);
+      expect(error, isNull);
+    });
+  });
+
+  // ===========================================================================
+  // Field – debounce
+  // ===========================================================================
+  group('Field – debounce', () {
+    test('debounce adia a validação pelo tempo configurado', () {
+      fakeAsync((fake) {
+        var validationCount = 0;
+        final field = Field<String>('search')
+          ..debounce(const Duration(milliseconds: 80))
+          ..addValidatorAsync('', (_) async {
+            validationCount++;
+            return false;
+          });
+        addTearDown(field.dispose);
+
+        field.value = 'a';
+        field.value = 'ab';
+        field.value = 'abc';
+
+        fake.elapse(const Duration(milliseconds: 150));
+        fake.flushMicrotasks();
+
+        expect(validationCount, equals(1));
+      });
+    });
+  });
+
+  // ===========================================================================
+  // Field – mask
+  // ===========================================================================
+  group('Field – mask', () {
+    test('aplica máscara corretamente', () {
+      final field = Field<String>('cpf')..mask('###.###.###-##');
+      addTearDown(field.dispose);
+      field.value = '12345678901';
+      expect(field.value, equals('123.456.789-01'));
+    });
+
+    test('jsonValue remove máscara quando removeMaskOnJson=true', () {
+      final field = Field<String>('cpf')
+        ..mask('###.###.###-##', removeMaskOnJson: true);
+      addTearDown(field.dispose);
+      field.value = '12345678901';
+      expect(field.jsonValue, equals('12345678901'));
+    });
+
+    test('jsonValue mantém máscara quando removeMaskOnJson=false', () {
+      final field = Field<String>('cpf')
+        ..mask('###.###.###-##', removeMaskOnJson: false);
+      addTearDown(field.dispose);
+      field.value = '12345678901';
+      expect(field.jsonValue, equals('123.456.789-01'));
+    });
+
+    test('máscara é truncada quando input é curto', () {
+      final field = Field<String>('cpf')..mask('###.###.###-##');
+      addTearDown(field.dispose);
+      field.value = '123';
+      expect(field.value, equals('123'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – transformToJson / jsonValue
+  // ===========================================================================
+  group('Field – jsonValue e transformToJson', () {
+    test('DateTime é serializado como ISO 8601 por padrão', () {
+      final date = DateTime(2024, 1, 15);
+      final field = Field<DateTime>('date');
+      addTearDown(field.dispose);
+      field.value = date;
+      expect(field.jsonValue, equals(date.toIso8601String()));
+    });
+
+    test('transformToJson substitui serialização padrão', () {
+      final field = Field<int>('age')..transformToJson((v) => v?.toString());
+      addTearDown(field.dispose);
+      field.value = 30;
+      expect(field.jsonValue, equals('30'));
+    });
+
+    test('valor nulo retorna null no jsonValue', () {
+      final field = Field<String>('name');
+      addTearDown(field.dispose);
+      expect(field.jsonValue, isNull);
+    });
+  });
+
+  // ===========================================================================
+  // Field – invalidate
+  // ===========================================================================
+  group('Field – invalidate', () {
+    test('seta error diretamente sem passar por validadores', () {
+      final field = Field<String>('email');
+      addTearDown(field.dispose);
+      field.invalidate('Email já existe');
+      expect(field.error, equals('Email já existe'));
+    });
+
+    test('notifica listeners após invalidate', () {
+      final field = Field<String>('email');
+      addTearDown(field.dispose);
+      var notified = false;
+      field.addListener(() => notified = true);
+      field.invalidate('err');
+      expect(notified, isTrue);
+    });
+  });
+
+  // ===========================================================================
+  // Field – applyWhen (conditional validators)
+  // ===========================================================================
+  group('Field – applyWhen', () {
+    test('validador é ignorado quando condição é falsa', () {
+      final form = formCtrl(() {
+        final toggle = Field<bool>('toggle', false);
+        final name = Field<String>('name').applyWhen(
+          (valueOf) => valueOf<bool>('toggle').value == true,
+          (f) => f.addValidator('Obrigatório', (v) => v == null || v.isEmpty),
+        );
+        return (toggle: toggle, name: name);
+      });
+      addTearDown(form.dispose);
+
+      form.fields.toggle.value = false;
+      expect(form.fields.name.validate(), isTrue);
+    });
+
+    test('validador é aplicado quando condição é verdadeira', () {
+      final form = formCtrl(() {
+        final toggle = Field<bool>('toggle', true);
+        final name = Field<String>('name').applyWhen(
+          (valueOf) => valueOf<bool>('toggle').value == true,
+          (f) => f.addValidator('Obrigatório', (v) => v == null || v.isEmpty),
+        );
+        return (toggle: toggle, name: name);
+      });
+      addTearDown(form.dispose);
+
+      expect(form.fields.name.validate(), isFalse);
+      expect(form.fields.name.error, equals('Obrigatório'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – applyEach
+  // ===========================================================================
+  group('Field – applyEach', () {
+    test('valida cada item de uma lista e retorna false no primeiro inválido', () {
+      final field = Field<List<String>>('tags')
+        ..applyEach<String>(
+          (f) => f.addValidator('Vazio', (v) => v == null || v.isEmpty),
+        );
+      addTearDown(field.dispose);
+      field.value = ['ok', '', 'valid'];
+      expect(field.validate(), isFalse);
+    });
+
+    test('retorna true quando todos os itens são válidos', () {
+      final field = Field<List<String>>('tags')
+        ..applyEach<String>(
+          (f) => f.addValidator('Vazio', (v) => v == null || v.isEmpty),
+        );
+      addTearDown(field.dispose);
+      field.value = ['ok', 'valid'];
+      expect(field.validate(), isTrue);
+    });
+
+    test('formatError é usado para compor mensagem de erro', () {
+      final field = Field<List<String>>('tags')
+        ..applyEach<String>(
+          (f) => f.addValidator('Vazio', (v) => v == null || v.isEmpty),
+          formatError: (i, msg) => 'Item $i: $msg',
+        );
+      addTearDown(field.dispose);
+      field.value = ['ok', ''];
+      field.validate();
+      expect(field.error, equals('Item 1: Vazio'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – exposedRules
+  // ===========================================================================
+  group('Field – exposedRules', () {
+    test('exposedRules reflete estado atual dos validadores', () {
+      final field = Field<String>('password')
+        ..addValidator(
+          'Mínimo 8 caracteres',
+          (v) => (v?.length ?? 0) < 8,
+          exposedMessage: true,
+        );
+      addTearDown(field.dispose);
+
+      field.value = 'abc';
+      expect(field.exposedRules.length, equals(1));
+      expect(field.exposedRules.first.isValid, isFalse);
+
+      field.value = 'abcdefgh';
+      expect(field.exposedRules.first.isValid, isTrue);
+    });
+
+    test('validadores sem exposedMessage não aparecem em exposedRules', () {
+      final field = Field<String>('x')
+        ..addValidator('hidden', (_) => false)
+        ..addValidator('shown', (_) => false, exposedMessage: true);
+      addTearDown(field.dispose);
+      expect(field.exposedRules.length, equals(1));
+      expect(field.exposedRules.first.message, equals('shown'));
+    });
+  });
+
+  // ===========================================================================
+  // Field – validationMode
+  // ===========================================================================
+  group('Field – validationMode', () {
+    test('onSubmit: value change não dispara validação automaticamente', () {
+      fakeAsync((fake) {
+        var validated = false;
+        final field = Field<String>('email')
+          ..validationMode(ValidationMode.onSubmit)
+          ..addValidatorAsync('err', (_) async {
+            validated = true;
+            return false;
+          });
+        addTearDown(field.dispose);
+
+        field.value = 'trigger';
+        fake.elapse(const Duration(milliseconds: 20));
+        fake.flushMicrotasks();
+        expect(validated, isFalse);
+      });
+    });
+
+    test('onBlur: touch() dispara validação, value change não', () {
+      fakeAsync((fake) {
+        var validationCount = 0;
+        final field = Field<String>('email')
+          ..validationMode(ValidationMode.onBlur)
+          ..addValidatorAsync('err', (_) async {
+            validationCount++;
+            return false;
+          });
+        addTearDown(field.dispose);
+
+        field.value = 'trigger';
+        fake.elapse(const Duration(milliseconds: 20));
+        expect(validationCount, equals(0));
+
+        field.touch();
+        fake.flushMicrotasks();
+        expect(validationCount, equals(1));
+      });
+    });
+  });
+
+  // ===========================================================================
+  // FormController – estado geral
+  // ===========================================================================
+  group('FormController – estado geral', () {
+    test('valid é true quando não há errors', () {
+      final form = formCtrl(() => (name: Field<String>('name', 'Wellington')));
+      addTearDown(form.dispose);
+      expect(form.valid, isTrue);
+    });
+
+    test('valid é false quando há campo com error', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      form.fields.name.invalidate('Erro');
+      expect(form.valid, isFalse);
+    });
+
+    test('isDirty é true quando qualquer campo é sujo', () {
+      final form = formCtrl(() => (name: Field<String>('name', 'initial')));
+      addTearDown(form.dispose);
+      form.fields.name.value = 'changed';
+      expect(form.isDirty, isTrue);
+    });
+
+    test('isTouched é true quando qualquer campo foi tocado', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      form.fields.name.touch();
+      expect(form.isTouched, isTrue);
+    });
+
+    test('errors retorna mapa apenas com campos com error', () {
+      final form = formCtrl(() => (a: Field<String>('a'), b: Field<String>('b')));
+      addTearDown(form.dispose);
+      form.fields.a.invalidate('Erro em A');
+      expect(form.errors.length, equals(1));
+      expect(form.errors['a'], equals('Erro em A'));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – getField / tryGetField
+  // ===========================================================================
+  group('FormController – getField', () {
+    test('getField retorna o campo correto', () {
+      final form = formCtrl(() => (email: Field<String>('email')));
+      addTearDown(form.dispose);
+      final field = form.getField<String>('email');
+      expect(field, same(form.fields.email));
+    });
+
+    test('getField lança ArgumentError quando campo não existe', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      expect(() => form.getField('nonexistent'), throwsArgumentError);
+    });
+
+    test('tryGetField retorna null quando campo não existe', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      expect(form.tryGetField('nonexistent'), isNull);
+    });
+  });
+
+  // ===========================================================================
+  // FormController – patchValue / setValue / resetField
+  // ===========================================================================
+  group('FormController – patchValue / setValue / resetField', () {
+    test('patchValue atualiza múltiplos campos', () {
+      final form = formCtrl(
+        () => (first: Field<String>('first'), last: Field<String>('last')),
+      );
+      addTearDown(form.dispose);
+      form.patchValue({'first': 'Wellington', 'last': 'Santos'});
+      expect(form.fields.first.value, equals('Wellington'));
+      expect(form.fields.last.value, equals('Santos'));
+    });
+
+    test('setValue atualiza campo específico', () {
+      final form = formCtrl(() => (age: Field<int>('age')));
+      addTearDown(form.dispose);
+      form.setValue('age', 28);
+      expect(form.fields.age.value, equals(28));
+    });
+
+    test('resetField reseta apenas o campo indicado', () {
+      final form = formCtrl(
+        () => (a: Field<String>('a', 'init_a'), b: Field<String>('b', 'init_b')),
+      );
+      addTearDown(form.dispose);
+      form.fields.a.value = 'changed';
+      form.fields.b.value = 'changed';
+
+      form.resetField('a');
+
+      expect(form.fields.a.value, equals('init_a'));
+      expect(form.fields.b.value, equals('changed'));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – reset
+  // ===========================================================================
+  group('FormController – reset', () {
+    test('reset restaura todos os campos e dispara onReset', () {
+      var resetCalled = false;
+      final form = formCtrl(() => (name: Field<String>('name', 'init')));
+      addTearDown(form.dispose);
+      form.onReset = () => resetCalled = true;
+
+      form.fields.name.value = 'changed';
+      form.reset();
+
+      expect(form.fields.name.value, equals('init'));
+      expect(form.fields.name.isDirty, isFalse);
+      expect(resetCalled, isTrue);
+    });
+
+    test('reset() notifica listeners do FormController', () {
+      final form = formCtrl(() => (x: Field<String>('x', 'v')));
+      addTearDown(form.dispose);
+      var count = 0;
+      form.addListener(() => count++);
+      form.reset();
+      expect(count, greaterThan(0));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – toJson
+  // ===========================================================================
+  group('FormController – toJson', () {
+    test('toJson produz mapa plano para campos simples', () {
+      final form = formCtrl(
+        () => (email: Field<String>('email', 'a@b.com'), age: Field<int>('age', 30)),
+      );
+      addTearDown(form.dispose);
+      final json = form.toJson();
+      expect(json['email'], equals('a@b.com'));
+      expect(json['age'], equals(30));
+    });
+
+    test('toJson produz mapa aninhado para formGroup', () {
+      final form = formCtrl(() => (
+            address: formGroup('address', () => (city: Field<String>('city', 'SP'))),
+          ));
+      addTearDown(form.dispose);
+      final json = form.toJson();
+      expect((json['address'] as Map)['city'], equals('SP'));
+    });
+
+    test('toJson usa cache: objeto idêntico retornado na segunda chamada', () {
+      final form = formCtrl(() => (x: Field<String>('x', 'v')));
+      addTearDown(form.dispose);
+      final j1 = form.toJson();
+      final j2 = form.toJson();
+      expect(identical(j1, j2), isTrue);
+    });
+
+    test('toJson invalida cache após mudança de valor', () {
+      final form = formCtrl(() => (x: Field<String>('x', 'old')));
+      addTearDown(form.dispose);
+      final j1 = form.toJson();
+      form.fields.x.value = 'new';
+      final j2 = form.toJson();
+      expect(identical(j1, j2), isFalse);
+      expect(j2['x'], equals('new'));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – submit
+  // ===========================================================================
+  group('FormController – submit', () {
+    test('submit chama onSubmit quando form é válido', () async {
+      var submitted = false;
+      final form = formCtrl(() => (name: Field<String>('name', 'Wellington')));
+      addTearDown(form.dispose);
+      await form.submit((_) async => submitted = true);
+      expect(submitted, isTrue);
+    });
+
+    test('submit NÃO chama onSubmit quando form é inválido', () async {
+      var submitted = false;
+      final form = formCtrl(
+        () => (name: Field<String>('name')
+          ..addValidator('Obrigatório', (v) => v == null || v.isEmpty)),
+      );
+      addTearDown(form.dispose);
+      await form.submit((_) async => submitted = true);
+      expect(submitted, isFalse);
+    });
+
+    test('isSubmitting é true durante submit e false após', () async {
+      final form = formCtrl(() => (name: Field<String>('name', 'ok')));
+      addTearDown(form.dispose);
+
+      final completer = Completer<void>();
+      bool? duringSubmit;
+
+      final fut = form.submit((_) async {
+        duringSubmit = form.isSubmitting;
+        await completer.future;
+      });
+
+      completer.complete();
+      await fut;
+
+      expect(duringSubmit, isTrue);
+      expect(form.isSubmitting, isFalse);
+    });
+
+    test('submit aciona onSubmitStart e onSubmitEnd com sucesso', () async {
+      var started = false;
+      bool? endedSuccess;
+
+      final form = formCtrl(() => (name: Field<String>('name', 'ok')));
+      addTearDown(form.dispose);
+      form.onSubmitStart = () => started = true;
+      form.onSubmitEnd = (s) => endedSuccess = s;
+
+      await form.submit((_) async {});
+
+      expect(started, isTrue);
+      expect(endedSuccess, isTrue);
+    });
+
+    test('submit aciona onSubmitEnd com false e relança exceção', () async {
+      bool? endedSuccess;
+
+      final form = formCtrl(() => (name: Field<String>('name', 'ok')));
+      addTearDown(form.dispose);
+      form.onSubmitEnd = (s) => endedSuccess = s;
+
+      await expectLater(
+        () => form.submit((_) async => throw Exception('fail')),
+        throwsException,
+      );
+
+      expect(endedSuccess, isFalse);
+      expect(form.isSubmitting, isFalse);
+    });
+
+    test('submit concorrente: ambas as chamadas executam onSubmit', () async {
+      var submitCount = 0;
+      final form = formCtrl(() => (x: Field<String>('x', 'ok')));
+      addTearDown(form.dispose);
+
+      await Future.wait([
+        form.submit((_) async => submitCount++),
+        form.submit((_) async => submitCount++),
+      ]);
+
+      expect(submitCount, equals(2));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – trigger
+  // ===========================================================================
+  group('FormController – trigger', () {
+    test('trigger() com path que não encontra nenhum campo retorna true', () async {
+      final form = formCtrl(() => (x: Field<String>('x')));
+      addTearDown(form.dispose);
+      final result = await form.trigger(path: 'inexistente');
+      expect(result, isTrue);
+    });
+  });
+
+  // ===========================================================================
+  // FormController – dispose
+  // ===========================================================================
+  group('FormController – dispose', () {
+    test('dispose não lança exceções', () {
+      final form = formCtrl(() => (name: Field<String>('name', 'Wellington')));
+      expect(() => form.dispose(), returnsNormally);
+    });
+
+    test('após dispose, field não notifica listeners', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      var notified = false;
+      form.fields.name.addListener(() => notified = true);
+      form.dispose();
+      expect(notified, isFalse);
+    });
+  });
+
+  // ===========================================================================
+  // formGroup – path stacking
+  // ===========================================================================
+  group('formGroup – aninhamento de paths', () {
+    test('paths são compostos corretamente em dois níveis', () {
+      late Field<String> city;
+      final form = formCtrl(() {
+        return formGroup('user', () {
+          return formGroup('address', () {
+            city = Field<String>('city');
+            return city;
+          });
+        });
+      });
+      addTearDown(form.dispose);
+      expect(city.name, equals('user.address.city'));
+    });
+  });
+}
