@@ -841,3 +841,26 @@ Usage is identical to built-in validators — sync and async extensions chain fr
 Field<String>('password').required().strongPassword();
 Field<String>('username').required().uniqueUsername();
 ```
+
+---
+
+## AI-Assisted Development
+
+`signal_form` ships with a [`SKILL.md`](SKILL.md) file — a compact, structured reference of the entire API optimized for AI assistants. It covers the full `Field<T>` and `FormController` APIs, all built-in validators, widgets, conditional/cross-field validation patterns, async race-condition handling, and end-to-end examples.
+
+### How to use it
+
+Feed `SKILL.md` to your AI assistant before asking questions about `signal_form`:
+
+**Claude / Claude Code**
+```
+Read the contents of SKILL.md and use it as context for any signal_form questions.
+```
+
+**Cursor**
+Add a reference in your `.cursorrules` file or paste the contents into the chat context window.
+
+**GitHub Copilot / other assistants**
+Open `SKILL.md` in your editor and mention it in your prompt, or paste the relevant sections directly into the chat.
+
+With the skill loaded, you can ask things like *"Create a registration form with CPF validation and async username check"* and the assistant will generate idiomatic `signal_form` code without guessing the API.

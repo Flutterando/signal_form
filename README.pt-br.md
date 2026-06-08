@@ -841,3 +841,26 @@ O uso é idêntico ao dos validadores embutidos — extensões síncronas e ass�
 Field<String>('senha').required().senhaForte();
 Field<String>('usuario').required().usuarioDisponivel();
 ```
+
+---
+
+## Desenvolvimento Assistido por IA
+
+O `signal_form` inclui um arquivo [`SKILL.md`](SKILL.md) — uma referência compacta e estruturada de toda a API, otimizada para assistentes de IA. Ele cobre a API completa de `Field<T>` e `FormController`, todos os validadores embutidos, widgets, padrões de validação condicional e entre campos, tratamento de race conditions assíncronas e exemplos end-to-end.
+
+### Como usar
+
+Forneça o `SKILL.md` ao seu assistente de IA antes de fazer perguntas sobre o `signal_form`:
+
+**Claude / Claude Code**
+```
+Leia o conteúdo de SKILL.md e use-o como contexto para perguntas sobre signal_form.
+```
+
+**Cursor**
+Adicione uma referência no seu arquivo `.cursorrules` ou cole o conteúdo na janela de contexto do chat.
+
+**GitHub Copilot / outros assistentes**
+Abra o `SKILL.md` no editor e mencione-o no prompt, ou cole as seções relevantes diretamente no chat.
+
+Com a skill carregada, você pode pedir coisas como *"Crie um formulário de cadastro com validação de CPF e verificação assíncrona de nome de usuário"* e o assistente vai gerar código idiomático de `signal_form` sem precisar adivinhar a API.
