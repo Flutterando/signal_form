@@ -1,3 +1,5 @@
 PLAN.md
 SKILL.md
 test/playground.dart
+build/
+*.iml
