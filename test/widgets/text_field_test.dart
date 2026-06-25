@@ -139,5 +139,36 @@ void main() {
 
       focusNode.dispose();
     });
+
+    testWidgets('works with typed and masked fields (e.g. Field<DateTime>)', (tester) async {
+      DateTime? parseDate(String s) {
+        final parts = s.split('/');
+        if (parts.length != 3) return null;
+        final d = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final y = int.tryParse(parts[2]);
+        if (d == null || m == null || y == null) return null;
+        return DateTime(y, m, d);
+      }
+
+      final field = Field<DateTime>('birth')
+          .mask('##/##/####')
+          .parse(parseDate);
+      addTearDown(field.dispose);
+
+      await tester.pumpWidget(_wrap(SignalTextField(field: field)));
+
+      // Type an incomplete date
+      await tester.enterText(find.byType(TextField), '2512');
+      await tester.pump();
+      expect(find.text('25/12'), findsOneWidget);
+      expect(field.value, isNull);
+
+      // Complete the date
+      await tester.enterText(find.byType(TextField), '25121990');
+      await tester.pump();
+      expect(find.text('25/12/1990'), findsOneWidget);
+      expect(field.value, equals(DateTime(1990, 12, 25)));
+    });
   });
 }

@@ -37,7 +37,9 @@ void main() {
     });
 
     test('mask runs before parse on Field<DateTime>', () {
+      String? maskedInput;
       DateTime? parseDate(String s) {
+        maskedInput = s;
         final parts = s.split('/');
         if (parts.length != 3) return null;
         final d = int.tryParse(parts[0]);
@@ -53,6 +55,7 @@ void main() {
       addTearDown(field.dispose);
 
       field.value = '25121990';
+      expect(maskedInput, equals('25/12/1990'));
       expect(field.value, equals(DateTime(1990, 12, 25)));
     });
 

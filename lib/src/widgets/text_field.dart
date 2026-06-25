@@ -47,7 +47,7 @@ import '../core.dart';
 /// )
 /// ```
 class SignalTextField extends StatefulWidget {
-  final Field<String> field;
+  final Field<dynamic> field;
   final InputDecoration decoration;
   final TextInputType? keyboardType;
   final bool obscureText;
@@ -93,7 +93,7 @@ class _SignalTextFieldState extends State<SignalTextField> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.field.value ?? '');
+    _controller = TextEditingController(text: widget.field.text ?? '');
     if (widget.focusNode == null) {
       _internalFocusNode = FocusNode();
     }
@@ -109,8 +109,8 @@ class _SignalTextFieldState extends State<SignalTextField> {
   }
 
   void _onFieldChange() {
-    if (_controller.text != widget.field.value) {
-      final newValue = widget.field.value ?? '';
+    if (_controller.text != widget.field.text) {
+      final newValue = widget.field.text ?? '';
       final oldSelection = _controller.selection;
 
       int newCursorPosition = newValue.length;
@@ -171,7 +171,7 @@ class _SignalTextFieldState extends State<SignalTextField> {
           onChanged: (value) {
             widget.field.value = value;
             widget.onChanged?.call(value);
-            if (_controller.text != widget.field.value) {
+            if (_controller.text != widget.field.text) {
               _onFieldChange();
             }
           },

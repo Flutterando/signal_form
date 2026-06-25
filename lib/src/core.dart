@@ -185,6 +185,7 @@ class Field<T> extends ChangeNotifier {
   late final String name;
   T? _value;
   T? _initialValue;
+  String? _text;
 
   /// The [FormController] this field belongs to, set automatically when
   /// the field is captured by [formCtrl].
@@ -336,6 +337,7 @@ class Field<T> extends ChangeNotifier {
     _initialValue = initialValue;
     if (initialValue != null) {
       _value = initialValue;
+      _text = initialValue is String ? initialValue : initialValue?.toString();
     }
   }
 
@@ -369,6 +371,18 @@ class Field<T> extends ChangeNotifier {
   /// string (e.g. `'(11) 9999-9999'`). Use [jsonValue] to access the
   /// unmasked representation for serialization.
   T? get value => _value;
+
+  /// The textual representation of the field's current value.
+  ///
+  /// If the field is a [Field<String>], this is equivalent to [value].
+  /// Otherwise, it returns the formatted (masked) string representation
+  /// of the value if it was set as a string, or falls back to [value.toString()].
+  String get text {
+    if (T == String) {
+      return (_value as String?) ?? '';
+    }
+    return _text ?? _value?.toString() ?? '';
+  }
 
   /// Whether an async validator is currently running for this field.
   ///
@@ -503,6 +517,9 @@ class Field<T> extends ChangeNotifier {
     final typed = val as T?;
     _initialValue = typed;
     _value = typed;
+    _text = typed is String
+        ? (_maskPattern != null ? _applyMask(typed, _maskPattern!) : typed)
+        : typed?.toString();
     _isDirty = false;
     _error = null;
     _isTouched = false;
@@ -529,17 +546,19 @@ class Field<T> extends ChangeNotifier {
   set value(dynamic val) {
     final oldValue = _value;
     T? newValue;
-
+    final oldText = _text;
     if (val is String) {
       // Apply mask first (formatting), then parse (type conversion).
       // This allows .mask('##/##/####').parse(parseDate) to work together.
       final masked = _maskPattern != null
           ? _applyMask(val, _maskPattern!)
           : val;
+      _text = masked;
       newValue = _parseFunction != null
           ? _parseFunction!(masked)
           : masked as T?;
     } else {
+      _text = val?.toString();
       newValue = val as T?;
     }
 
@@ -547,7 +566,7 @@ class Field<T> extends ChangeNotifier {
       newValue = _transformFunction!(newValue);
     }
 
-    if (_value != newValue) {
+    if (_value != newValue || oldText != _text) {
       _value = newValue;
       _isDirty = newValue != _initialValue;
 
@@ -555,7 +574,9 @@ class Field<T> extends ChangeNotifier {
       _notifyIfMounted();
 
       // Trigger lifecycle callback
-      onValueChanged?.call(oldValue, newValue);
+      if (oldValue != newValue) {
+        onValueChanged?.call(oldValue, newValue);
+      }
 
       // Invalidate form cache
       form?._invalidateCache();
@@ -630,9 +651,16 @@ class Field<T> extends ChangeNotifier {
     if (identical(to, _resetSentinel)) {
       _value = _initialValue;
       _isDirty = false;
+      final initVal = _initialValue;
+      _text = initVal is String
+          ? (_maskPattern != null ? _applyMask(initVal, _maskPattern!) : initVal)
+          : initVal?.toString();
     } else {
       _value = to as T?;
       _isDirty = _value != _initialValue;
+      _text = to is String
+          ? (_maskPattern != null ? _applyMask(to, _maskPattern!) : to)
+          : to?.toString();
     }
     _error = null;
     _isTouched = false;
@@ -1376,6 +1404,9 @@ class ComputedField<T> extends Field<T> {
     final newVal = _compute(valueOf);
     if (_value != newVal) {
       _value = newVal;
+      _text = newVal is String
+          ? (_maskPattern != null ? _applyMask(newVal, _maskPattern!) : newVal)
+          : newVal?.toString();
       _notifyIfMounted();
       form?._invalidateCache();
     }
