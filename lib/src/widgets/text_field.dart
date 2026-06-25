@@ -93,7 +93,7 @@ class _SignalTextFieldState extends State<SignalTextField> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.field.text ?? '');
+    _controller = TextEditingController(text: widget.field.text);
     if (widget.focusNode == null) {
       _internalFocusNode = FocusNode();
     }
@@ -110,7 +110,7 @@ class _SignalTextFieldState extends State<SignalTextField> {
 
   void _onFieldChange() {
     if (_controller.text != widget.field.text) {
-      final newValue = widget.field.text ?? '';
+      final newValue = widget.field.text;
       final oldSelection = _controller.selection;
 
       int newCursorPosition = newValue.length;
@@ -119,7 +119,10 @@ class _SignalTextFieldState extends State<SignalTextField> {
           newCursorPosition = newValue.length;
         } else {
           final diff = newValue.length - _controller.text.length;
-          newCursorPosition = (oldSelection.start + diff).clamp(0, newValue.length);
+          newCursorPosition = (oldSelection.start + diff).clamp(
+            0,
+            newValue.length,
+          );
         }
       }
 
@@ -135,7 +138,9 @@ class _SignalTextFieldState extends State<SignalTextField> {
     super.didUpdateWidget(oldWidget);
     if (widget.focusNode != oldWidget.focusNode) {
       oldWidget.focusNode?.removeListener(_onFocusChange);
-      if (oldWidget.focusNode == null) _internalFocusNode.removeListener(_onFocusChange);
+      if (oldWidget.focusNode == null) {
+        _internalFocusNode.removeListener(_onFocusChange);
+      }
 
       if (widget.focusNode == null) {
         _internalFocusNode = FocusNode();

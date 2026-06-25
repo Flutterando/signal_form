@@ -337,7 +337,7 @@ class Field<T> extends ChangeNotifier {
     _initialValue = initialValue;
     if (initialValue != null) {
       _value = initialValue;
-      _text = initialValue is String ? initialValue : initialValue?.toString();
+      _text = initialValue is String ? initialValue : initialValue.toString();
     }
   }
 
@@ -517,9 +517,7 @@ class Field<T> extends ChangeNotifier {
     final typed = val as T?;
     _initialValue = typed;
     _value = typed;
-    _text = typed is String
-        ? (_maskPattern != null ? _applyMask(typed, _maskPattern!) : typed)
-        : typed?.toString();
+    _text = _getFormattedText(typed);
     _isDirty = false;
     _error = null;
     _isTouched = false;
@@ -558,8 +556,8 @@ class Field<T> extends ChangeNotifier {
           ? _parseFunction!(masked)
           : masked as T?;
     } else {
-      _text = val?.toString();
       newValue = val as T?;
+      _text = _getFormattedText(newValue);
     }
 
     if (_transformFunction != null) {
@@ -651,16 +649,11 @@ class Field<T> extends ChangeNotifier {
     if (identical(to, _resetSentinel)) {
       _value = _initialValue;
       _isDirty = false;
-      final initVal = _initialValue;
-      _text = initVal is String
-          ? (_maskPattern != null ? _applyMask(initVal, _maskPattern!) : initVal)
-          : initVal?.toString();
+      _text = _getFormattedText(_initialValue);
     } else {
       _value = to as T?;
       _isDirty = _value != _initialValue;
-      _text = to is String
-          ? (_maskPattern != null ? _applyMask(to, _maskPattern!) : to)
-          : to?.toString();
+      _text = to is T ? _getFormattedText(to) : to;
     }
     _error = null;
     _isTouched = false;
@@ -805,6 +798,24 @@ class Field<T> extends ChangeNotifier {
       }
     }
     return result.toString();
+  }
+
+  String? _getFormattedText(T? val) {
+    if (val == null) return null;
+    if (val is DateTime) {
+      if (_maskPattern == '##/##/####') {
+        final d = val.day.toString().padLeft(2, '0');
+        final m = val.month.toString().padLeft(2, '0');
+        final y = val.year.toString().padLeft(4, '0');
+        return _applyMask('$d$m$y', _maskPattern!);
+      }
+    }
+    final strVal = val.toString();
+    return _applyMaskIfPatternSet(strVal);
+  }
+
+  String? _applyMaskIfPatternSet(String text) {
+    return _maskPattern != null ? _applyMask(text, _maskPattern!) : text;
   }
 
   /// Runs [buildValidators] with this field as the argument, enabling reusable
@@ -1404,9 +1415,7 @@ class ComputedField<T> extends Field<T> {
     final newVal = _compute(valueOf);
     if (_value != newVal) {
       _value = newVal;
-      _text = newVal is String
-          ? (_maskPattern != null ? _applyMask(newVal, _maskPattern!) : newVal)
-          : newVal?.toString();
+      _text = _getFormattedText(newVal);
       _notifyIfMounted();
       form?._invalidateCache();
     }

@@ -279,6 +279,48 @@ void main() {
       final json = form.toJson();
       expect(json['total'], equals(10.0));
     });
+
+    test('computed field with mask (vacation schema)', () {
+      final form = formCtrl(
+        () => (
+          startDate: Field<DateTime>('startDate')
+            .mask('##/##/####')
+            .parse((s) {
+              final p = s.split('/');
+              final year = int.parse(p[2]);
+              final month = int.parse(p[1]);
+              final day = int.parse(p[0]);
+              return DateTime(year, month, day);
+            }),
+          daysRequested: Field<int>('daysRequested', 15),
+          returnDate: Field.computed<DateTime>('returnDate', (valueOf) {
+            final start = valueOf<DateTime>('startDate').value;
+            final days = valueOf<int>('daysRequested').value ?? 0;
+            if (start == null) return null;
+            return start.add(Duration(days: days));
+          }).mask('##/##/####'),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      // Verify initial state
+      expect(form.fields.returnDate.value, isNull);
+      expect(form.fields.returnDate.text, equals(''));
+
+      // Simulate typing a start date
+      form.fields.startDate.value = '10082026';
+      expect(form.fields.startDate.value, equals(DateTime(2026, 8, 10)));
+      expect(form.fields.startDate.text, equals('10/08/2026'));
+
+      // Sum 15 days
+      expect(form.fields.returnDate.value, equals(DateTime(2026, 8, 25)));
+      expect(form.fields.returnDate.text, equals('25/08/2026'));
+
+      // Change days to 30
+      form.fields.daysRequested.value = 30;
+      expect(form.fields.returnDate.value, equals(DateTime(2026, 9, 9)));
+      expect(form.fields.returnDate.text, equals('09/09/2026'));
+    });
   });
 
   // ===========================================================================

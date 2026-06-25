@@ -170,5 +170,64 @@ void main() {
       expect(find.text('25/12/1990'), findsOneWidget);
       expect(field.value, equals(DateTime(1990, 12, 25)));
     });
+
+    testWidgets('works end-to-end with computed and masked field (vacation schema)', (tester) async {
+      final form = formCtrl(
+        () => (
+          startDate: Field<DateTime>('startDate')
+            .mask('##/##/####')
+            .parse((s) {
+              final p = s.split('/');
+              if (p.length != 3) return null;
+              final year = int.tryParse(p[2]);
+              final month = int.tryParse(p[1]);
+              final day = int.tryParse(p[0]);
+              if (year == null || month == null || day == null) return null;
+              return DateTime(year, month, day);
+            }),
+          daysRequested: Field<int>('daysRequested', 15),
+          returnDate: Field.computed<DateTime>('returnDate', (valueOf) {
+            final start = valueOf<DateTime>('startDate').value;
+            final days = valueOf<int>('daysRequested').value ?? 0;
+            if (start == null) return null;
+            return start.add(Duration(days: days));
+          }).mask('##/##/####'),
+        ),
+      );
+      addTearDown(form.dispose);
+
+      await tester.pumpWidget(_wrap(Column(
+        children: [
+          SignalTextField(field: form.fields.startDate, key: const Key('start')),
+          SignalTextField(field: form.fields.returnDate, key: const Key('return')),
+        ],
+      )));
+
+      // Initially, return date is empty
+      expect(find.byKey(const Key('return')), findsOneWidget);
+      final returnTextField = tester.widget<TextField>(
+        find.descendant(of: find.byKey(const Key('return')), matching: find.byType(TextField)),
+      );
+      expect(returnTextField.controller!.text, equals(''));
+
+      // Enter start date
+      await tester.enterText(
+        find.descendant(of: find.byKey(const Key('start')), matching: find.byType(TextField)),
+        '10082026',
+      );
+      await tester.pump();
+
+      // Return date should be updated to 25/08/2026 (startDate: 10/08/2026 + 15 days)
+      expect(returnTextField.controller!.text, equals('25/08/2026'));
+      expect(form.fields.returnDate.value, equals(DateTime(2026, 8, 25)));
+
+      // Change daysRequested
+      form.fields.daysRequested.value = 30;
+      await tester.pump();
+
+      // Return date should be updated to 09/09/2026 (startDate: 10/08/2026 + 30 days)
+      expect(returnTextField.controller!.text, equals('09/09/2026'));
+      expect(form.fields.returnDate.value, equals(DateTime(2026, 9, 9)));
+    });
   });
 }
