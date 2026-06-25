@@ -18,7 +18,7 @@ void main() {
       form.fields.tags.value = null;
       expect(form.fields.tags.validate(), isFalse);
 
-      form.fields.tags.value = [];
+      form.fields.tags.value = <String>[];
       expect(form.fields.tags.validate(), isFalse);
 
       // minItems check (1 item)

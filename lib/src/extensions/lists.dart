@@ -192,6 +192,6 @@ extension ListFieldValidators<T> on Field<List<T>> {
   /// print(tags.value); // []
   /// ```
   void clear() {
-    value = [];
+    value = <T>[];
   }
 }

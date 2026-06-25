@@ -2,34 +2,82 @@
 
 > 🇧🇷 [Leia em Português](README.pt-br.md)
 
-Managing complex forms in Flutter often means juggling `TextEditingController`, `GlobalKey<FormState>`, scattered validation logic, and imperative state updates. **signal_form** was built to unify and simplify all of that.
-
-Inspired by [Angular Signal Forms](https://angular.dev/essentials/signal-forms), it brings a **schema-based, strongly typed** approach to Flutter forms: you declare your fields and validation rules once, in a single place, and the library takes care of the rest.
-
-- **Declarative validation** — rules live next to the field they belong to, not scattered across the widget tree
-- **Fluent API** — chain validators in a single expression with low verbosity and high readability
-- **High performance** — fields notify only their own listeners; the form-level cache avoids redundant recomputation
-- **Data formatting and transformation** — built-in input masking and `toJson` transformers keep raw and serialized values in sync automatically
-- **Ready-made widgets** — drop-in Material components (`SignalTextField`, `SignalDropdown`, `SignalCheckbox`, and more) with error display, focus handling, and automatic scroll to the first invalid field wired up out of the box
-- **Extensible** — add your own sync or async validators as plain Dart extension methods, indistinguishable from the built-ins
-
-## Features
-
-- **Schema-first** — define your form structure in pure Dart records; no `GlobalKey<FormState>` or `TextEditingController` to manage
-- **Fluent validation API** — chain validators directly on each `Field` declaration
-- **Sync & async validators** — built-in race-condition protection for async checks
-- **Debounce** — throttle validation on keystroke-heavy fields
-- **Validation modes** — `onChange`, `onBlur`, or `onSubmit`
-- **Conditional validation** — `applyWhen` activates rules only when another field satisfies a condition
-- **Cross-field validation** — compare or reference sibling fields via `valueOf`
-- **Input masking** — built-in `mask()` with automatic JSON stripping
-- **Auto-scroll on error** — `submit()` and `trigger()` focus/scroll to the first invalid field
-- **Ready-made widgets** — `SignalTextField`, `SignalDropdown`, `SignalCheckbox`, `SignalSwitch`, `SignalRadioGroup`, `SignalCheckboxGroup`, `SignalSlider`, `SignalRangeSlider`, `SignalDateTimePicker`, `SignalDateRangePicker`, `SignalChoiceChip`, `SignalFilterChip`
-- **High performance** — fields notify only their own listeners; a form-level cache avoids redundant recomputation on every rebuild
-- **Strongly typed** — every `Field<T>`, validator, and `toJson` value is fully typed end-to-end; no `dynamic` leaks at the form level
-- **Escape hatch** — `SignalFormField<T>` lets you wrap any Flutter widget with full field reactivity
-
----
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#installation">Installation</a></li>
+    <li>
+      <a href="#quick-start">Quick start</a>
+      <ol>
+        <li><a href="#1-define-the-schema">1. Define the schema</a></li>
+        <li><a href="#2-wire-the-widgets">2. Wire the widgets</a></li>
+        <li><a href="#3-dispose">3. Dispose</a></li>
+        <li><a href="#recommended-project-organization">Recommended Project Organization</a></li>
+      </ol>
+    </li>
+    <li>
+      <a href="#motivation">Motivation</a>
+      <ol>
+        <li><a href="#detailed-feature-list">Detailed Feature List</a></li>
+      </ol>
+    </li>
+    <li>
+      <a href="#core-api">Core API</a>
+      <ol>
+        <li><a href="#fieldt">Field&lt;T&gt;</a></li>
+        <li><a href="#formcontrollert">FormController&lt;T&gt;</a></li>
+        <li><a href="#nested-groups--formgroup">Nested groups — formGroup</a></li>
+      </ol>
+    </li>
+    <li><a href="#validation-modes">Validation modes</a></li>
+    <li>
+      <a href="#custom-validators">Custom validators</a>
+      <ol>
+        <li><a href="#sync--must">Sync — must</a></li>
+        <li><a href="#cross-field--mustwith">Cross-field — mustWith</a></li>
+        <li><a href="#low-level--addvalidator">Low-level — addValidator</a></li>
+      </ol>
+    </li>
+    <li><a href="#async-validators">Async validators</a></li>
+    <li><a href="#conditional-validation--applywhen">Conditional validation — applyWhen</a></li>
+    <li>
+      <a href="#conditional-routing--switchwith">Conditional routing — switchWith</a>
+      <ol>
+        <li><a href="#typed-keys-with-sealed-classes">Typed keys with sealed classes</a></li>
+      </ol>
+    </li>
+    <li><a href="#exposed-rules-password-strength-indicator">Exposed rules (password strength indicator)</a></li>
+    <li>
+      <a href="#input-masking">Input masking</a>
+      <ol>
+        <li><a href="#mask-reference">Mask reference</a></li>
+      </ol>
+    </li>
+    <li><a href="#tojson-transformer">toJson transformer</a></li>
+    <li><a href="#lifecycle-callbacks">Lifecycle callbacks</a></li>
+    <li>
+      <a href="#widgets">Widgets</a>
+      <ol>
+        <li><a href="#signaltextfield">SignalTextField</a></li>
+        <li><a href="#signaldropdownt">SignalDropdown&lt;T&gt;</a></li>
+        <li><a href="#signalcheckbox">SignalCheckbox</a></li>
+        <li><a href="#signalswitch">SignalSwitch</a></li>
+        <li><a href="#signalradiogroupt">SignalRadioGroup&lt;T&gt;</a></li>
+        <li><a href="#signalcheckboxgroupt">SignalCheckboxGroup&lt;T&gt;</a></li>
+        <li><a href="#signalslider">SignalSlider</a></li>
+        <li><a href="#signalrangeslider">SignalRangeSlider</a></li>
+        <li><a href="#signaldatetimepicker">SignalDateTimePicker</a></li>
+        <li><a href="#signaldaterangepicker">SignalDateRangePicker</a></li>
+        <li><a href="#signalchoicechipt-and-signalfilterchipt">SignalChoiceChip&lt;T&gt; and SignalFilterChip&lt;T&gt;</a></li>
+      </ol>
+    </li>
+    <li><a href="#vanilla-flutter-inputs--signalformfieldt">Vanilla Flutter inputs — SignalFormField&lt;T&gt;</a></li>
+    <li><a href="#validation-reference">Validation reference</a></li>
+    <li><a href="#extending-with-custom-validators">Extending with custom validators</a></li>
+    <li><a href="#ai-assisted-development">AI-Assisted Development</a></li>
+  </ol>
+</details>
 
 ## Installation
 
@@ -114,6 +162,112 @@ void dispose() {
 }
 ```
 
+### Recommended Project Organization
+
+For larger or more maintainable projects, it is a best practice to split your form schema definition from your UI screen into separate files. This keeps your validation and data transformation logic completely independent of Flutter widgets.
+
+Here is a recommended pattern:
+
+#### 1. The Schema File (`login_schema.dart`)
+
+This file contains the schema record definition, the builder function, and any data mapping extensions:
+
+```dart
+// login_schema.dart
+typedef LoginFormSchema = ({Field<String> email, Field<String> password});
+
+LoginFormSchema loginFormSchema() => (
+  // email
+  email: Field<String>('email')
+      .required(message: 'O e-mail é obrigatório')
+      .email(message: 'E-mail inválido'),
+  // password
+  password: Field<String>('password')
+      .required(message: 'A senha é obrigatória')
+      .minLength(6, message: 'A senha deve ter pelo menos 6 caracteres'),
+);
+
+extension ParseFormExtension on FormController<LoginFormSchema> {
+  LoginDto toDto() {
+    return LoginDto(
+      email: fields.email.value!,
+      password: fields.password.value!,
+    );
+  }
+}
+```
+
+#### 2. The Screen File (`login_screen.dart`)
+
+This file instantiates the form controller and builds the user interface:
+
+```dart
+// login_screen.dart
+
+late final form = formCtrl(loginFormSchema);
+
+void submit() => form.submit((data) async => api.login(data.toDto()));
+
+// In your build method:
+Column(
+  children: [
+    SignalTextField(
+      field: form.fields.email,
+      decoration: const InputDecoration(labelText: 'E-mail'),
+      keyboardType: TextInputType.emailAddress,
+    ),
+    SignalTextField(
+      field: form.fields.password,
+      decoration: const InputDecoration(labelText: 'Senha'),
+      obscureText: true,
+    ),
+    ListenableBuilder(
+      listenable: form,
+      builder: (context, _) {
+        return ElevatedButton(
+          // Disable button if form is invalid or submitting
+          onPressed: form.valid && !form.isSubmitting
+              ? submit
+              : null,
+          child: form.isSubmitting
+              ? const CircularProgressIndicator()
+              : const Text('Submit'),
+        );
+      },
+    ),
+  ],
+)
+```
+
+## Motivation
+
+Managing complex forms in Flutter often means juggling `TextEditingController`, `GlobalKey<FormState>`, scattered validation logic, and imperative state updates. **signal_form** was built to unify and simplify all of that.
+
+Inspired by [Angular Signal Forms](https://angular.dev/essentials/signal-forms), it brings a **schema-based, strongly typed** approach to Flutter forms: you declare your fields and validation rules once, in a single place, and the library takes care of the rest.
+
+- **Declarative validation** — rules live next to the field they belong to, not scattered across the widget tree
+- **Fluent API** — chain validators in a single expression with low verbosity and high readability
+- **High performance** — fields notify only their own listeners; the form-level cache avoids redundant recomputation
+- **Data formatting and transformation** — built-in input masking and `toJson` transformers keep raw and serialized values in sync automatically
+- **Ready-made widgets** — drop-in Material components (`SignalTextField`, `SignalDropdown`, `SignalCheckbox`, and more) with error display, focus handling, and automatic scroll to the first invalid field wired up out of the box
+- **Extensible** — add your own sync or async validators as plain Dart extension methods, indistinguishable from the built-ins
+
+### Detailed Feature List
+
+- **Schema-first** — define your form structure in pure Dart records; no `GlobalKey<FormState>` or `TextEditingController` to manage
+- **Fluent validation API** — chain validators directly on each `Field` declaration
+- **Sync & async validators** — built-in race-condition protection for async checks
+- **Debounce** — throttle validation on keystroke-heavy fields
+- **Validation modes** — `onChange`, `onBlur`, or `onSubmit`
+- **Conditional validation** — `applyWhen` activates rules only when another field satisfies a condition
+- **Cross-field validation** — compare or reference sibling fields via `valueOf`
+- **Input masking** — built-in `mask()` with automatic JSON stripping
+- **Auto-scroll on error** — `submit()` and `trigger()` focus/scroll to the first invalid field
+- **Ready-made widgets** — `SignalTextField`, `SignalDropdown`, `SignalCheckbox`, `SignalSwitch`, `SignalRadioGroup`, `SignalCheckboxGroup`, `SignalSlider`, `SignalRangeSlider`, `SignalDateTimePicker`, `SignalDateRangePicker`, `SignalChoiceChip`, `SignalFilterChip`
+- **High performance** — fields notify only their own listeners; a form-level cache avoids redundant recomputation on every rebuild
+- **Strongly typed** — every `Field<T>`, validator, and `toJson` value is fully typed end-to-end; no `dynamic` leaks at the form level
+- **Escape hatch** — `SignalFormField<T>` lets you wrap any Flutter widget with full field reactivity
+
 ---
 
 ## Core API
@@ -136,6 +290,7 @@ Field<String>('username')
 | `isDirty` | `bool` | Value differs from initial value |
 | `isTouched` | `bool` | Field has been interacted with |
 | `isLoading` | `bool` | Async validation in progress |
+| `isDisabled` | `bool` | Field is disabled (validators skipped) |
 | `initialValue` | `T?` | Value the field was initialized with |
 | `exposedRules` | `List<({String message, bool isValid})>` | Rules marked with `exposed: true` |
 
@@ -143,33 +298,114 @@ Field<String>('username')
 |---|---|
 | `touch()` | Mark field as touched |
 | `reset()` | Restore to initial value, clear errors |
+| `reset({to})` | Restore to initial value, or to an arbitrary value via the named `to` parameter |
+| `parse(fn)` | Converts raw string input to the field's value type (e.g. `String → int`) |
+| `transform(fn)` | Normalizes the value before storing (trim, lowercase, etc.) |
 | `invalidate(message)` | Set a manual error |
+| `clearError()` | Clear the current error without re-running validators |
+| `disable()` | Disable the field — all validators are skipped |
+| `enable()` | Re-enable the field — restores normal validation |
 | `validate()` | Run sync validators, returns `bool` |
 | `validateAsync()` | Run all validators, returns `Future<bool>` |
 | `debounce(duration)` | Throttle validation |
 | `validationMode(mode)` | Set `onChange`, `onBlur`, or `onSubmit` |
+
+#### `parse(fn)` — type conversion from text input
+
+`parse` registers a converter that turns a raw `String` into the field's typed value. This is the bridge between a `TextField` (which always emits `String`) and a strongly-typed field like `Field<int>` or `Field<DateTime>`.
+
+```dart
+final age   = Field<int>('age').parse(int.tryParse);
+final birth = Field<DateTime>('birth')
+    .mask('##/##/####')
+    .parse((s) {
+      final p = s.split('/');
+      return DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+    });
+
+age.value = '25';          // stored as int 25
+birth.value = '25121990';  // mask → '25/12/1990' → parse → DateTime(1990,12,25)
+```
+
+**How the setter works.** `Field.value` accepts `dynamic`. When the incoming value is a `String`, the pipeline is:
+
+```
+String input  →  mask (if set)  →  parse (if set)  →  transform (if set)  →  stored as T
+```
+
+When the value is not a `String` (e.g. programmatic assignment of an already-typed value), it is cast directly to `T?` — the parse and mask steps are skipped.
+
+**Empty-list caveat.** Because the setter accepts `dynamic`, Dart cannot infer the element type of an untyped list literal — `[]` becomes `List<dynamic>` and the runtime cast to `List<String>` fails. Always supply the element type when assigning an empty list literal to a typed list field:
+
+```dart
+// ✗ runtime error — List<dynamic> is not List<String>
+tags.value = [];
+
+// ✓ explicit element type
+tags.value = <String>[];
+```
+
+Non-empty literals (`['a', 'b']`) and variables (`final list = <String>[]; tags.value = list;`) work without annotation because Dart infers their type from the elements or the declaration.
+
+#### `Field.detached<T>` factory
+
+Creates a `Field` that is **not tracked** by the enclosing `formCtrl`. Use it inside tests or helper functions to avoid accidentally registering a stray field on a form:
+
+```dart
+final standalone = Field.detached<String>('label');
+// or with initial value:
+final standalone = Field.detached<int>('count', 0);
+```
+
+#### `Field.computed<T>` factory
+
+Creates a **derived, read-only** field whose value is recomputed automatically whenever any field in the form changes. The computed field appears in `toJson`, is excluded from `completionPercent`, and its `isDirty` is always `false`.
+
+```dart
+final form = formCtrl(() => (
+  qty:   Field<int>('qty', 1),
+  price: Field<double>('price', 99.9),
+  total: Field.computed<double>('total', (valueOf) {
+    final q = valueOf<int>('qty').value ?? 0;
+    final p = valueOf<double>('price').value ?? 0;
+    return q * p;
+  }),
+));
+
+form.fields.qty.value = 3;
+print(form.fields.total.value); // 299.7
+```
 
 ### `FormController<T>`
 
 Returned by `formCtrl`. Holds all fields and coordinates validation.
 
 ```dart
-form.submit((f) async { ... });   // validate all, call on success
-form.trigger();                    // validate all without submitting
-form.trigger(path: 'email');       // validate only a specific field/group
-form.reset();                      // reset all fields
-form.resetField('email');          // reset one field
-form.patchValue({'name': 'John'}); // set multiple values
+form.submit((f) async { ... });          // validate all, call on success
+form.trigger();                           // validate all without submitting
+form.trigger(path: 'email');              // validate only a specific field/group
+form.reset();                             // reset all fields
+form.resetField('email');                 // reset one field
+form.patchValue({'name': 'John'});        // set multiple values
 form.setValue('email', 'a@b.com');
-form.toJson();                     // { name: 'John', email: 'a@b.com', ... }
-form.toJson(omitNulls: true);      // same, but null fields and empty nested groups are pruned
-form.errors;                       // Map<String, String> of current errors
-form.valid;                        // true if errors is empty
-form.isDirty;                      // true if any field is dirty
-form.isTouched;                    // true if any field is touched
-form.isSubmitting;                 // true during submit callback
-form.isValidating;                 // true while async validation runs
-form.getField<String>('email');    // O(1) lookup
+form.fromJson(map);                       // populate fields from a JSON map (nested maps are flattened)
+form.fromJson(map, setAsInitial: true);   // same, but also updates initialValue (edit-form pattern)
+form.toJson();                            // { name: 'John', email: 'a@b.com', ... }
+form.toJson(omitNulls: true);             // prune null fields and empty nested groups
+form.toJson(omitDisabled: true);          // exclude disabled fields from the output
+form.dirtyValues();                       // subset map containing only fields that changed
+form.clearErrors();                       // clear all validation errors at once
+form.clearErrors(path: 'addr');           // clear errors for a field/group prefix
+form.setErrors({'email': 'Already taken', 'cpf': 'Invalid'}); // apply server-side errors in bulk
+form.toQueryString();                     // convert form to URL query parameters
+form.completionPercent;                   // fraction (0.0–1.0) of non-disabled, non-computed fields that have a value
+form.errors;                              // Map<String, String> of current errors
+form.valid;                               // true if errors is empty
+form.isDirty;                             // true if any field is dirty
+form.isTouched;                           // true if any field is touched
+form.isSubmitting;                        // true during submit callback
+form.isValidating;                        // true while async validation runs
+form.getField<String>('email');           // O(1) lookup
 ```
 
 `submit()` automatically calls `touchAll()` and `trigger()` before invoking the callback. By default, it will automatically focus and scroll the first invalid field into view.
@@ -184,7 +420,20 @@ Built-in widgets (like `SignalTextField`) automatically register their `FocusNod
 
 #### Form Editing (CRUD) & Reset
 - **Patch Value**: To load data into a form for editing (e.g. from an API), use `form.patchValue(Map<String, dynamic> values)`. It takes dot-notation paths (e.g., `'personal.age'`) and updates field values in a single batched operation (notifying UI listeners exactly once).
+- **Load from JSON**: `form.fromJson(map)` accepts any JSON map — including nested objects — and populates the matching fields. Pass `setAsInitial: true` to also update each field's `initialValue`, so that a subsequent `reset()` returns to the loaded data instead of the original defaults.
 - **Reset**: Call `form.reset()` to restore all fields to their `initialValue` and clear all active errors. You can set the `form.onReset` callback to react to this lifecycle event. Use `form.resetField('path')` to reset a single field.
+
+#### Edit-form pattern
+
+```dart
+// After fetching data from an API:
+final user = await api.getUser(id);
+form.fromJson(user, setAsInitial: true);
+// Now isDirty is false, and reset() returns to the loaded values.
+
+// On save — send only what the user actually changed:
+await api.patchUser(id, form.dirtyValues());
+```
 
 ### Nested groups — `formGroup`
 
@@ -429,7 +678,7 @@ for (final rule in form.fields.password.exposedRules)
 ## Input masking
 
 ```dart
-// Fixed mask — '#' is a placeholder for any character
+// Fixed mask — '#' is a placeholder for any alphanumeric character
 Field<String>('phone').mask('(##) #####-####');
 
 // Dynamic CPF / CNPJ mask (switches at 11 digits)
@@ -437,9 +686,59 @@ Field<String>('document').maskCPFOrCNPJ();
 
 // Keep the formatted value in JSON
 Field<String>('card').mask('#### #### #### ####', removeMaskOnJson: false);
+
+// Brazilian ready-made masks
+Field<String>('cpf').maskCPF();
+Field<String>('cnpj').maskCNPJ();
+Field<String>('phone').maskCelular();
+Field<String>('zip').maskCEP();                        // XX.XXX-XXX
+Field<String>('zip').maskCEP(ponto: false);            // XXXXX-XXX
+Field<String>('date').maskData();                      // DD/MM/YYYY
+Field<String>('time').maskHora();                      // HH:mm
+Field<String>('amount').maskDecimal(casasDecimais: 2); // 9.999.999.999,00
 ```
 
 The JSON value strips mask characters by default (`removeMaskOnJson: true`).
+
+### Mask reference
+
+All masks accept a `removeMaskOnJson` parameter (default `true`) that controls whether formatting is stripped when accessing `field.jsonValue`. Decimal masks convert the comma to a dot in JSON output (e.g. `1,82` → `1.82`).
+
+#### Generic mask
+
+| Method | Format | Description |
+|---|---|---|
+| `mask(pattern)` | customizable | `#` matches any alphanumeric character |
+
+#### Brazilian formatting masks
+
+Ready-made formatters for the document, currency, and data-entry standards used in Brazil.
+
+| Method | Format | Description |
+|---|---|---|
+| `maskAltura()` | `1,82` | Height in meters,centimeters (max 3 digits) |
+| `maskCartaoCredito()` | `0000 1111 2222 3333` | Credit card (16 digits, groups of 4) |
+| `maskCartaoTelefone()` | `000 1111 2222 3333` | Phone card (15 digits: 3 + 4 + 4 + 4) |
+| `maskCEP({ponto})` | `XX.XXX-XXX` / `XXXXX-XXX` | Brazilian ZIP — `ponto: false` removes the leading dot |
+| `maskCertidaoNascimento()` | `XXXXXX XX XX XXXX X XXXXX XXX XXXXXXX XX` | Birth certificate (32 digits) |
+| `maskCEST()` | `XX.XXX.XX` | CEST code (7 digits) |
+| `maskCNPJ()` | `99.999.999/9999-99` | Numeric CNPJ |
+| `maskCNPJAlfanumerico()` | `XX.XXX.XXX/XXXX-XX` | Alphanumeric CNPJ — new 2024 format (14 chars, uppercased) |
+| `maskCPF()` | `XXX.XXX.XXX-XX` | CPF (11 digits) |
+| `maskCPFOrCNPJ()` | dynamic | CPF (≤ 11 digits) or CNPJ (12–14 digits) |
+| `maskData()` | `DD/MM/YYYY` | Date |
+| `maskDecimal({casasDecimais})` | `9.999.999.999,00` | Decimal with BR separators; `casasDecimais` sets decimal places (default: 2) |
+| `maskHora()` | `HH:mm` | Time — clamps hour to 0–23 and minute to 0–59 |
+| `maskIOF()` | `1,234567` | IOF rate (1 integer digit + 6 decimal digits) |
+| `maskKm()` | `000.000` | Odometer reading (6 digits) |
+| `maskNCM()` | `XXXX.XX.XX` | NCM tariff code (8 digits) |
+| `maskNUP()` | `XXXXXXX-XX.XXXX.X.XX.XXXX` | NUP — unique process number (20 digits) |
+| `maskPeso()` | `103,8` | Weight in kg.g — last digit is decimal, no thousands separator |
+| `maskPlacaVeiculo()` | `XXX-XXXX` | Vehicle plate (old and Mercosul formats, uppercased) |
+| `maskReal()` | `999.999.999.999` | Integer BRL amount with dot thousands separator |
+| `maskCelular()` | `(99) 99999-9999` | Brazilian mobile phone (11 digits) |
+| `maskTemperatura()` | `10,8` | Temperature in °C — last digit is decimal, no thousands separator |
+| `maskValidade({maxLength})` | `MM/AA` / `MM/AAAA` | Card expiry — `maxLength: 4` (default) or `6` |
 
 ---
 
@@ -700,7 +999,8 @@ The builder is called every time `field` notifies listeners — you get the full
 | `when(condition)` | Conditionally required |
 | **Brazilian** | |
 | `validCPF()` | CPF with check-digit |
-| `validCNPJ()` | CNPJ with check-digit |
+| `validCNPJ()` | Numeric CNPJ with check-digit |
+| `validCNPJAlfanumerico()` | Alphanumeric CNPJ with check-digit (new 2024 format) |
 | `validCPFOrCNPJ()` | CPF or CNPJ |
 | `validCEP()` | Brazilian ZIP code |
 | `validPhoneBR()` | Brazilian mobile number |
@@ -781,11 +1081,13 @@ Field<List<String>>('tags')
 
 | Method | Description |
 |---|---|
+| `required()` | Value must not be `null` — works on any `Field<T>` (e.g. `Field<int>`, `Field<bool>`, `Field<MyEnum>`) |
 | `must((val) => bool)` | Custom sync rule |
 | `mustWith((val, valueOf) => bool)` | Custom rule with access to other fields |
 | `equalTo(other)` | Value equals a fixed value |
 | `isNull()` | Must be null |
 | `isNotNull()` | Must not be null |
+| `oneOf(allowedValues)` | Value is one of the allowed values; `null`/empty passes (combine with `required`) |
 
 ---
 

@@ -5,6 +5,25 @@ import '../core.dart';
 /// These methods work regardless of the field's value type and return `this`
 /// to allow method chaining on the field builder.
 extension GenericFieldValidators<T> on Field<T> {
+  /// Validates that the value is not `null`.
+  ///
+  /// Works on any [Field<T>]. For [Field<String>], prefer the string-specific
+  /// `required()` extension which also rejects empty strings.
+  ///
+  /// [message] is the error string shown when the value is `null`.
+  /// [exposed] — when `true`, the rule appears in [Field.exposedRules].
+  ///
+  /// Returns `this` to allow method chaining.
+  ///
+  /// Example:
+  /// ```dart
+  /// final age = Field<int>('age').required('Obrigatório');
+  /// final category = Field<MyEnum>('category').required('Selecione uma categoria');
+  /// ```
+  Field<T> required({String message = '', bool exposed = false}) {
+    return addValidator(message, (val) => val == null, exposedMessage: exposed);
+  }
+
   /// Validates using a custom predicate where `true` means the value is valid.
   ///
   /// [isValid] receives the current [value] and must return `true` when the
@@ -142,7 +161,7 @@ extension GenericFieldValidators<T> on Field<T> {
     String message = '',
     bool exposed = false,
   }) {
-    return addValidator('$message ${allowedValues.join(', ')}', (val) {
+    return addValidator(message, (val) {
       if (val == null) return false;
       if (val is String && val.isEmpty) return false;
       if (val is Iterable && val.isEmpty) return false;

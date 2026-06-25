@@ -33,24 +33,77 @@ final form = formCtrl(() => (
 - `isTouched`: `true` if any field in the form has been touched (user focused/blurred/interacted).
 - `isValidating`: `true` if any async validator is currently running.
 - `isSubmitting`: `true` if the `submit` operation is currently executing its callback.
+- `completionPercent`: `double` (0.0–1.0) — fraction of non-disabled, non-computed fields that have a non-null, non-empty value.
 
 ### Field State
-- `value`: The typed value of the field. Writing to `value` triggers the validation and listener lifecycle.
+- `value`: The typed value of the field (`T?`). Writing to `value` triggers the validation and listener lifecycle. The setter accepts `dynamic` — see **Value Setter Pipeline** below.
 - `error`: Active validation error string, or `null`.
 - `isTouched`: `true` if the field has been interacted with.
 - `isDirty`: `true` if the value differs from `initialValue`.
 - `isLoading`: `true` if the field is running async validation.
+- `isDisabled`: `true` if the field has been disabled via `.disable()`. Disabled fields skip all validators and are optionally excluded from `toJson`.
 - `exposedRules`: Lists individual validator rules marked with `exposed: true` along with their current validity state (e.g. for dynamic checklist UIs).
 
+### Value Setter Pipeline
+`Field.value` accepts `dynamic`. When the incoming value is a `String`, it passes through this pipeline before being stored:
+
+```
+String input  →  mask (if set)  →  parse (if set)  →  transform (if set)  →  stored as T
+```
+
+When the value is not a `String` (programmatic typed assignment), mask and parse are skipped; only `transform` is applied if set.
+
+**Empty-list caveat**: Because the setter accepts `dynamic`, `[]` is inferred as `List<dynamic>` and the runtime cast to `List<String>` fails. Always provide the element type explicitly:
+```dart
+tags.value = <String>[];   // ✓
+tags.value = [];           // ✗ runtime error
+```
+
+### Field Factories
+- **`Field<T>(name, [initialValue])`**: Standard tracked field.
+- **`Field.detached<T>(name, [initialValue])`**: Creates a field that is **not tracked** by any enclosing `formCtrl`. Use inside tests or helper functions to avoid accidentally polluting a form.
+- **`Field.computed<T>(name, (valueOf) => T?)`**: Creates a **derived, read-only** field recomputed automatically whenever any field in the form changes. Setter throws `UnsupportedError`. `isDirty` is always `false`. `reset()` is a no-op. Excluded from `completionPercent`. Appears in `toJson`.
+
+```dart
+final form = formCtrl(() => (
+  qty:   Field<int>('qty', 1),
+  price: Field<double>('price', 99.9),
+  total: Field.computed<double>('total', (valueOf) {
+    final q = valueOf<int>('qty').value ?? 0;
+    final p = valueOf<double>('price').value ?? 0.0;
+    return q * p;
+  }),
+));
+form.fields.qty.value = 3;
+print(form.fields.total.value); // 299.7
+```
+
+### Key Field Methods (fluent, return `this`)
+- `.parse(T? Function(String) fn)` — Registers a converter for string input → `T`. Applied after mask in the setter pipeline.
+- `.transform(T? Function(T?) fn)` — Normalizes the value before storing (e.g. trim, lowercase). Applied last in the setter pipeline.
+- `.mask(pattern)` — Applies input masking (see Masking section).
+- `.debounce(Duration)` — Throttles validation.
+- `.validationMode(ValidationMode)` — `onChange` (default), `onBlur`, or `onSubmit`.
+- `.addValidator(message, hasError)` — Adds a sync validator.
+- `.addValidatorAsync(message, hasError)` — Adds an async validator.
+- `.apply(fn)` / `.applyWhen(condition, fn)` / `.applyEach<I>(fn)` — Apply validators conditionally or per-item.
+- `.disable()` / `.enable()` — Disable/re-enable the field. Disabled fields skip all validation.
+- `.invalidate(message, {shouldFocus, shouldScroll})` — Manually set an error.
+- `.clearError()` — Clears the current error without re-running validators.
+- `.reset()` — Restores `value` to `initialValue`, clears error and touched state.
+- `.reset(to: value)` — Restores to an arbitrary value instead of `initialValue`. `isDirty` reflects the comparison to `initialValue`. Supports `reset(to: null)` to explicitly set null.
+- `.touch()` — Marks the field as touched.
+- `.validate()` — Runs sync validators, returns `bool`.
+- `.validateAsync()` — Runs all validators, returns `Future<bool>`.
+
 ### Validation Modes & Performance
-Fields support configuration for when automatic validation runs:
 - `ValidationMode.onChange` (Default): Validates on every keypress/value assignment. Can be debounced using `field.debounce(duration)`.
 - `ValidationMode.onBlur`: Validates only after the field loses focus for the first time.
 - `ValidationMode.onSubmit`: Validates only during form submission.
 
 ### Form Lifecycle & Global Reactivity
-- **Memory Management (Dispose)**: The `FormController` and all its captured fields retain active listeners. You **MUST** call `form.dispose()` inside the `dispose()` method of your `StatefulWidget` to release resources and avoid memory leaks.
-- **Global Reactivity**: `FormController` extends `ChangeNotifier`, implementing the `Listenable` interface. When you need to react to global changes (e.g., disabling a submit button if `form.valid` is `false`, checking if the form is dirty with `form.isDirty`, or displaying a loading spinner with `form.isSubmitting`), wrap the target widgets in a `ListenableBuilder` and pass the `form` controller as the `listenable`.
+- **Memory Management (Dispose)**: You **MUST** call `form.dispose()` inside the `dispose()` method of your `StatefulWidget`.
+- **Global Reactivity**: `FormController` extends `ChangeNotifier`. Wrap widgets that react to form-level state in `ListenableBuilder(listenable: form, ...)`.
 
 ```dart
 ListenableBuilder(
@@ -139,7 +192,7 @@ All built-in validators return `this` to allow fluent method chaining on `Field`
 - `.uppercase({String message, bool exposed})`
 - `.lowercase({String message, bool exposed})`
 - `.maskCPFOrCNPJ({bool removeMaskOnJson})`: Auto-formats and masks input to a CPF or CNPJ format dynamically.
-- `.oneOf(List<String> values, {String message, bool exposed})`: Ensures value is in list of allowed items.
+- `.oneOf(List<String> values, {String message, bool exposed})`: Ensures value is in list of allowed items. `null`/empty passes — combine with `.required()`.
 - `.when(bool Function(String?) condition, void Function(Field<String>) builder)`: Conditionally applies validation rules to the string field.
 
 ### Numeric Validators (`Field<num>`, `Field<int>`, `Field<double>`)
@@ -198,7 +251,7 @@ All built-in validators return `this` to allow fluent method chaining on `Field`
   - `.addItem(item)`
   - `.removeItem(item)`
   - `.removeAt(index)`
-  - `.clear()`
+  - `.clear()` — use `<T>[]` not `[]` when assigning empty lists (see Value Setter Pipeline).
 
 ### Generic Validators (`Field<T>`)
 - `.must(bool Function(T?) isValid, {String message, bool exposed})`
@@ -206,6 +259,8 @@ All built-in validators return `this` to allow fluent method chaining on `Field`
 - `.equalTo(T value, {String message, bool exposed})`
 - `.isNull({String message, bool exposed})`
 - `.isNotNull({String message, bool exposed})`
+- `.required({String message, bool exposed})` — works on any `Field<T>`: checks value is not `null`. On `Field<String>`, also checks for empty/whitespace.
+- `.oneOf(List<T> allowedValues, {String message, bool exposed})` — value is one of the allowed items.
 
 ---
 
@@ -440,7 +495,6 @@ class _CustomVanillaInputState extends State<CustomVanillaInput> {
     return ListenableBuilder(
       listenable: widget.field,
       builder: (context, _) {
-        // Keep controller value in sync with external programmatic field updates
         if (_controller.text != widget.field.value) {
           _controller.text = widget.field.value ?? '';
         }
@@ -485,18 +539,26 @@ ElevatedButton(
     try {
       await api.registerUser(ctrl.toJson());
     } on ApiException catch (e) {
-      // Map server-side validation errors back to specific form fields
-      if (e.fieldErrors.containsKey('email')) {
-        ctrl.fields.email.invalidate(
-          'Email already taken',
-          shouldFocus: true,
-          shouldScroll: true,
-        );
-      }
+      // Option A: set one error manually
+      ctrl.fields.email.invalidate('Email already taken', shouldFocus: true);
+
+      // Option B: batch-apply multiple server errors at once
+      ctrl.setErrors(e.fieldErrors); // Map<String, String>
     }
   }),
   child: const Text('Submit'),
 );
+```
+
+### `form.setErrors(Map<String, String>)` — batch server errors
+Applies a map of field-path → error-message pairs in a single batched notification. Keys that don't match any field are silently ignored.
+
+```dart
+form.setErrors({
+  'email': 'Email already taken',
+  'username': 'Username not available',
+  'address.zip': 'Invalid ZIP code',
+});
 ```
 
 ### Focus Node & Scrolling on Error
@@ -509,47 +571,91 @@ When `form.submit()` or `form.trigger(shouldFocus: true, shouldScroll: true)` fa
 
 ### Data Extraction & DTOs (`toJson()`)
 - **Nested Maps**: `form.toJson()` returns a nested `Map<String, dynamic>` where dot-notation fields are automatically expanded (e.g., `'address.city'` becomes `{'address': {'city': '...'}}`).
-- **Omit nulls**: Pass `omitNulls: true` to strip null leaf values **and** prune any nested groups that become empty as a result. Useful for PATCH payloads where absent fields should not overwrite existing data.
-  ```dart
-  form.toJson();                 // { name: 'John', address: null }
-  form.toJson(omitNulls: true);  // { name: 'John' }  ← address removed
-  ```
+- **Omit nulls**: Pass `omitNulls: true` to strip null leaf values **and** prune any nested groups that become empty as a result.
+- **Omit disabled**: Pass `omitDisabled: true` to exclude disabled fields from the output.
 - **Non-Primitive Types**:
-  - `DateTime`: If a field's type is `DateTime` and no custom transformer is defined, it is automatically serialized into its ISO 8601 string representation via `toIso8601String()`.
-  - `List<T>` / `Iterable<T>`: If list items contain complex types, you must define a custom transformer. Otherwise, they are serialized as-is.
-- **Custom Transformers**: Use `transformToJson(dynamic Function(T?) transformer)` to define custom serialization for enums, entity objects, or special formats:
+  - `DateTime`: Auto-serialized to ISO 8601 string via `toIso8601String()` if no custom transformer is defined.
+  - `List<T>` / `Iterable<T>`: Serialized as-is; define a custom transformer for complex item types.
+- **Custom Transformers**: Use `transformToJson(dynamic Function(T?) transformer)`:
 ```dart
-final form = formCtrl(() => (
-  status: Field<UserStatus>('status')
-      .transformToJson((status) => status?.name),
-  tags: Field<List<Tag>>('tags')
-      .transformToJson((tags) => tags?.map((t) => t.id).toList()),
-));
+Field<UserStatus>('status').transformToJson((status) => status?.name),
+Field<List<Tag>>('tags').transformToJson((tags) => tags?.map((t) => t.id).toList()),
+```
+
+### `form.toQueryString()` — URL query parameters
+Converts the form to a URL query string. Nested maps are flattened with dot notation. Null values are omitted by default.
+
+```dart
+// form with name='Alice', age=30 → 'name=Alice&age=30'
+final qs = form.toQueryString();
+final qs = form.toQueryString(omitNulls: false); // include null fields
+```
+
+### `form.dirtyValues()` — PATCH payload
+Returns a nested map containing only the fields that have changed since `initialValue`. Use for PATCH requests to avoid sending unchanged data.
+
+```dart
+await api.patchUser(id, form.dirtyValues());
+// only sends fields the user actually modified
 ```
 
 ---
 
 ## 8. Form Editing, Patching & Reset (CRUD)
 
-### Patching Existing Data (Edição)
-To populate a form with existing data (e.g., loading an entity from an API), use `form.patchValue(Map<String, dynamic> values)`.
-- It takes a map of dot-notation paths to values and assigns them to matching fields.
-- Non-matching paths are silently ignored.
-- The updates are batched, notifying listeners exactly **once** after all fields are updated.
+### Loading Data (`fromJson`)
+`form.fromJson(Map<String, dynamic>)` accepts any JSON map — including nested objects — and populates the matching fields. Non-matching keys are silently ignored. Updates are batched (single notification).
 
 ```dart
-// Fetching user from API and editing
-final userData = await api.getUser(userId);
+form.fromJson({'name': 'Alice', 'address': {'city': 'SP'}});
+// nested maps are automatically flattened to dot-notation paths
+```
+
+Pass `setAsInitial: true` to also update each field's `initialValue`, so that a subsequent `reset()` returns to the loaded data instead of the original constructor defaults. Use this for edit-form scenarios.
+
+```dart
+final user = await api.getUser(id);
+form.fromJson(user, setAsInitial: true);
+// Now isDirty is false, reset() returns to the API data.
+```
+
+### Patching (`patchValue`)
+`form.patchValue(Map<String, dynamic>)` sets values using dot-notation paths. Does NOT update `initialValue`.
+
+```dart
 form.patchValue({
   'username': userData.name,
-  'email': userData.email,
   'personal.age': userData.age,
 });
 ```
 
-### Resetting Forms
-- **Global Reset**: Call `form.reset()` to restore all fields in the form to their `initialValue` and clear all validation errors in a single batched operation. If `form.onReset` is set, it will be executed.
-- **Single Field Reset**: Call `form.resetField('path')` to restore a single field by its dot-notation path to its initial state.
+### Edit-Form Pattern
+```dart
+// Load → edit → send only changes
+final user = await api.getUser(id);
+form.fromJson(user, setAsInitial: true); // isDirty = false
+
+// On save:
+await api.patchUser(id, form.dirtyValues()); // only what changed
+```
+
+### Resetting
+- **`form.reset()`**: Restore all fields to `initialValue`, clear all errors. Fires `form.onReset` if set.
+- **`form.resetField('path')`**: Reset a single field by dot-notation path.
+- **`field.reset()`**: Reset a single field to its `initialValue`.
+- **`field.reset(to: value)`**: Reset a single field to an arbitrary value. `isDirty` reflects comparison to `initialValue`. Supports `reset(to: null)`.
+
+### Clearing Errors
+- **`form.clearErrors()`**: Clear all validation errors across the entire form in one batched operation.
+- **`form.clearErrors(path: 'address')`**: Clear errors for a specific field or group prefix.
+- **`field.clearError()`**: Clear the error on a single field without re-running validators.
+
+### Completion Tracking
+`form.completionPercent` returns a `double` from 0.0 to 1.0 representing the fraction of non-disabled, non-computed fields that have a non-null, non-empty value. Useful for progress indicators.
+
+```dart
+LinearProgressIndicator(value: form.completionPercent);
+```
 
 ---
 
@@ -560,7 +666,13 @@ form.patchValue({
 - **ALWAYS** use `ListenableBuilder` when rendering a vanilla Flutter widget attached to a `Field<T>` or when reacting to global `FormController` changes.
 - **DO NOT** call `.validate()` or `form.trigger()` manually on every `onChanged`. Rely on the field's `ValidationMode` (default is `onChange`).
 - **PREFER** fluently chaining built-in validators instead of writing custom `.must()` or `.mustWith()` functions if a built-in equivalent exists.
-- **ALWAYS** use full dot-notation paths (e.g., `'address.street'`) when calling `valueOf`, `getField`, `tryGetField`, `patchValue`, or `resetField`.
+- **ALWAYS** use full dot-notation paths (e.g., `'address.street'`) when calling `valueOf`, `getField`, `tryGetField`, `patchValue`, `resetField`, or `setErrors`.
+- **USE** `Field<int>('age').parse(int.tryParse)` to connect a `TextField` to a typed field. The `value` setter accepts `dynamic` — a string input is automatically routed through the parse pipeline.
+- **USE** `field.transform((v) => v?.trim())` to normalize values before storing, not `onValueChanged` (which is for side effects and doesn't run before storage).
+- **USE** `Field.computed<T>` for derived values that depend on other fields. Never try to manually sync computed values via `onValueChanged`.
+- **USE** `form.fromJson(data, setAsInitial: true)` for edit forms so `reset()` and `dirtyValues()` work correctly relative to the loaded data.
+- **USE** `form.setErrors(serverErrors)` to apply server-side validation errors in bulk instead of calling `field.invalidate()` individually.
+- **AVOID** assigning untyped empty list literals (`[]`) to list fields — use `<ElementType>[]` instead.
 
 ---
 
@@ -587,7 +699,6 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  // 1. Declare the form controller
   late final FormController form;
   bool _isLoadingData = true;
 
@@ -595,7 +706,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void initState() {
     super.initState();
 
-    // 2. Initialize the form controller with fields and validators
     form = formCtrl(() => (
       username: Field<String>('username')
           .required(message: 'Username is required')
@@ -605,6 +715,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           .email(message: 'Invalid email address'),
       personal: formGroup('personal', () => (
         age: Field<int>('age')
+            .parse(int.tryParse)
             .required(message: 'Age is required')
             .min(18, message: 'Must be at least 18 years old'),
       )),
@@ -613,41 +724,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _loadUserData();
   }
 
-  // 3. Simulating CRUD Edit scenario: Fetching and patching values on start
   Future<void> _loadUserData() async {
     try {
       final user = await widget.api.getUser(widget.userId);
-      
-      // Patch values in a single batched operation
-      form.patchValue({
-        'username': user.username,
-        'email': user.email,
-        'personal.age': user.age,
-      });
+      // setAsInitial: true → reset() returns to these values, dirtyValues() diffs against them
+      form.fromJson(user.toJson(), setAsInitial: true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load user: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isLoadingData = false);
-      }
+      if (mounted) setState(() => _isLoadingData = false);
     }
   }
 
-  // 4. Dispose the FormController to prevent memory leaks!
   @override
   void dispose() {
-    form.dispose(); 
+    form.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoadingData) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -656,57 +756,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 5. Use built-in widgets (they auto-register FocusNodes)
             SignalTextField(
               field: form.fields.username,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Username'),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 16),
             SignalTextField(
               field: form.fields.email,
-              decoration: const InputDecoration(
-                labelText: 'Email Address',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Email Address'),
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 16),
-            
-            // Nested field under formGroup
             SignalTextField(
-              field: form.fields.personal.fields.age,
-              decoration: const InputDecoration(
-                labelText: 'Age',
-                border: OutlineInputBorder(),
-              ),
+              field: form.fields.personal.age,
+              decoration: const InputDecoration(labelText: 'Age'),
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 32),
-
-            // 6. ListenableBuilder reacts to global form validation & submit state
             ListenableBuilder(
               listenable: form,
               builder: (context, _) {
-                final isSubmitting = form.isSubmitting;
-                
                 return ElevatedButton(
-                  // Button is disabled if form is invalid or currently submitting
-                  onPressed: form.valid && !isSubmitting
-                      ? _onSubmit
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                  ),
-                  child: isSubmitting
+                  onPressed: form.valid && !form.isSubmitting ? _onSubmit : null,
+                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                  child: form.isSubmitting
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                          height: 20, width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Text('Save Profile'),
@@ -720,26 +798,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _onSubmit() async {
-    // 7. submit() touches all fields and auto-scrolls/focuses on first error
     await form.submit((ctrl) async {
       try {
-        await widget.api.updateUser(widget.userId, ctrl.toJson());
+        // Send only what changed
+        await widget.api.patchUser(widget.userId, ctrl.dirtyValues());
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile saved successfully!')),
+          const SnackBar(content: Text('Profile saved!')),
         );
       } on ApiException catch (e) {
-        // Map backend errors back to fields
-        if (e.errors.containsKey('email')) {
-          ctrl.fields.email.invalidate(
-            e.errors['email']!,
-            shouldFocus: true,
-            shouldScroll: true,
-          );
-        }
+        // Batch-apply all server validation errors at once
+        ctrl.setErrors(e.fieldErrors);
       }
     });
   }
 }
 ```
-
-

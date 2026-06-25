@@ -244,6 +244,8 @@ class Field<T> extends ChangeNotifier {
 
   dynamic Function(T?)? _toJsonTransformer;
   String? _maskPattern;
+  T? Function(String)? _parseFunction;
+  T? Function(T?)? _transformFunction;
 
   late final List<String> pathSegments;
 
@@ -337,6 +339,30 @@ class Field<T> extends ChangeNotifier {
     }
   }
 
+  /// Creates a [Field] that is not registered with the active [FormTracker]
+  /// context, making it safe to instantiate outside of a [formCtrl] builder —
+  /// for example in unit tests.
+  ///
+  /// Equivalent to wrapping construction with `FormTracker.pauseTracking`,
+  /// but avoids leaking global state if the constructor throws.
+  ///
+  /// Example:
+  /// ```dart
+  /// final field = Field.detached<String>('email')
+  ///   .required('Obrigatório')
+  ///   .validEmail('Email inválido');
+  /// field.value = 'alice@example.com';
+  /// await field.validateAsync();
+  /// ```
+  static Field<E> detached<E>(String name, [E? initialValue]) {
+    FormTracker.pauseTracking = true;
+    try {
+      return Field<E>(name, initialValue);
+    } finally {
+      FormTracker.pauseTracking = false;
+    }
+  }
+
   /// The current value of the field.
   ///
   /// When a [mask] pattern is configured, the returned value is the masked
@@ -407,11 +433,82 @@ class Field<T> extends ChangeNotifier {
   }
 
   bool _isDisposed = false;
+  bool _isDisabled = false;
+
+  /// Whether this field is currently disabled.
+  ///
+  /// When `true`, all validators are skipped and the field contributes no
+  /// errors to [FormController.errors]. Use [disable] and [enable] to toggle.
+  bool get isDisabled => _isDisabled;
 
   void _notifyIfMounted() {
     if (!_isDisposed) {
       notifyListeners();
     }
+  }
+
+  /// Disables the field, skipping all validators and clearing any current error.
+  ///
+  /// While disabled, [validate] and [validateAsync] always return `true`.
+  /// The field can be excluded from [FormController.toJson] by passing
+  /// `omitDisabled: true`. Call [enable] to restore normal behaviour.
+  ///
+  /// Example:
+  /// ```dart
+  /// field.disable(); // validators no longer run
+  /// field.enable();  // back to normal
+  /// ```
+  void disable() {
+    if (!_isDisabled) {
+      _isDisabled = true;
+      _error = null;
+      _notifyIfMounted();
+      form?._invalidateCache();
+    }
+  }
+
+  /// Re-enables the field after a previous [disable] call.
+  void enable() {
+    if (_isDisabled) {
+      _isDisabled = false;
+      _notifyIfMounted();
+      form?._invalidateCache();
+    }
+  }
+
+  /// Clears the current validation error without running validators.
+  ///
+  /// Useful for dismissing server-side errors (set via [invalidate]) when the
+  /// user starts correcting the field.
+  ///
+  /// Example:
+  /// ```dart
+  /// field.invalidate('Email já cadastrado');
+  /// // user edits the field...
+  /// field.clearError();
+  /// ```
+  void clearError() {
+    if (_error != null) {
+      _error = null;
+      _notifyIfMounted();
+      form?._invalidateCache();
+    }
+  }
+
+  /// Sets [value] and [initialValue] simultaneously, clearing all validation
+  /// state. Used by [FormController.fromJson] with `setAsInitial: true` so
+  /// that [reset] returns to the loaded value rather than the constructor value.
+  void _loadValue(dynamic val) {
+    _debounceTimer?.cancel();
+    final typed = val as T?;
+    _initialValue = typed;
+    _value = typed;
+    _isDirty = false;
+    _error = null;
+    _isTouched = false;
+    _isLoading = false;
+    _validationVersion++;
+    _notifyIfMounted();
   }
 
   /// Sets the field's value, applies mask if configured, updates [isDirty],
@@ -429,14 +526,25 @@ class Field<T> extends ChangeNotifier {
   /// phone.value = '11999999999';
   /// print(phone.value); // '(11) 99999-9999'
   /// ```
-  set value(T? val) {
+  set value(dynamic val) {
     final oldValue = _value;
     T? newValue;
 
-    if (val != null && val is String && _maskPattern != null) {
-      newValue = _applyMask(val, _maskPattern!) as T;
+    if (val is String) {
+      // Apply mask first (formatting), then parse (type conversion).
+      // This allows .mask('##/##/####').parse(parseDate) to work together.
+      final masked = _maskPattern != null
+          ? _applyMask(val, _maskPattern!)
+          : val;
+      newValue = _parseFunction != null
+          ? _parseFunction!(masked)
+          : masked as T?;
     } else {
-      newValue = val;
+      newValue = val as T?;
+    }
+
+    if (_transformFunction != null) {
+      newValue = _transformFunction!(newValue);
     }
 
     if (_value != newValue) {
@@ -515,15 +623,63 @@ class Field<T> extends ChangeNotifier {
   /// print(name.value);   // 'Alice'
   /// print(name.isDirty); // false
   /// ```
-  void reset() {
+  static const Object _resetSentinel = Object();
+
+  void reset({Object? to = _resetSentinel}) {
     _debounceTimer?.cancel();
-    _value = _initialValue;
+    if (identical(to, _resetSentinel)) {
+      _value = _initialValue;
+      _isDirty = false;
+    } else {
+      _value = to as T?;
+      _isDirty = _value != _initialValue;
+    }
     _error = null;
-    _isDirty = false;
     _isTouched = false;
     _isLoading = false;
     _validationVersion++;
     _notifyIfMounted();
+  }
+
+  /// Registers a function that converts a raw [String] input into the field's
+  /// value type [T].
+  ///
+  /// When the `value` setter receives a [String] and a parse function is set,
+  /// it calls [fn] with that string and stores the result instead of the raw
+  /// string. Takes priority over [mask] when both are configured.
+  ///
+  /// Returns `this` to allow method chaining.
+  ///
+  /// ```dart
+  /// final age = Field<int>('age').parse(int.tryParse);
+  /// age.value = '25'; // stored as int 25
+  ///
+  /// final birth = Field<DateTime>('birth')
+  ///     .mask('##/##/####')
+  ///     .parse(parseDate);
+  /// birth.value = '25121990'; // mask → '25/12/1990' → parse → DateTime
+  /// ```
+  Field<T> parse(T? Function(String raw) fn) {
+    _parseFunction = fn;
+    return this;
+  }
+
+  /// Registers a function that normalizes the field's value before storing it.
+  ///
+  /// [fn] is called after every value assignment (including after [parse] and
+  /// [mask]), receiving the about-to-be-stored value and returning the final
+  /// value that will actually be stored.
+  ///
+  /// Returns `this` to allow method chaining.
+  ///
+  /// Example:
+  /// ```dart
+  /// final email = Field<String>('email').transform((v) => v?.trim().toLowerCase());
+  /// email.value = '  Alice@Example.COM  '; // stored as 'alice@example.com'
+  /// ```
+  Field<T> transform(T? Function(T? value) fn) {
+    _transformFunction = fn;
+    return this;
   }
 
   /// Sets the [ValidationMode] that controls when validators run automatically.
@@ -899,6 +1055,7 @@ class Field<T> extends ChangeNotifier {
       message: message,
       dynamicMessage: dynamicMessage,
       hasError: (val) {
+        if (_isDisabled) return false;
         if (activeCondition != null) {
           if (form == null) return false;
           Field<O> valueOf<O>(String path) => form!.getField<O>(path);
@@ -947,6 +1104,7 @@ class Field<T> extends ChangeNotifier {
       message: message,
       dynamicMessage: dynamicMessage,
       hasError: (val) async {
+        if (_isDisabled) return false;
         if (activeCondition != null) {
           if (form == null) return false;
           Field<O> valueOf<O>(String path) => form!.getField<O>(path);
@@ -1165,6 +1323,77 @@ class Field<T> extends ChangeNotifier {
     _debounceTimer?.cancel();
     super.dispose();
   }
+
+  /// Creates a derived, read-only field whose value is recomputed automatically
+  /// whenever any field in the form changes.
+  ///
+  /// [name] is the dot-notation path used in [FormController.toJson].
+  /// [compute] receives a [ValueOf] function to read other fields by path and
+  /// must return the derived value of type [E].
+  ///
+  /// The computed field is read-only — assigning to its `value` throws
+  /// [UnsupportedError]. Its [isDirty] is always `false` and [reset] is a no-op.
+  ///
+  /// Example:
+  /// ```dart
+  /// final form = formCtrl(() => (
+  ///   qty:   Field<int>('qty', 1),
+  ///   price: Field<double>('price', 99.9),
+  ///   total: Field.computed<double>('total', (valueOf) {
+  ///     final q = valueOf<int>('qty').value ?? 0;
+  ///     final p = valueOf<double>('price').value ?? 0;
+  ///     return q * p;
+  ///   }),
+  /// ));
+  ///
+  /// form.fields.qty.value = 3;
+  /// print(form.fields.total.value); // 299.7
+  /// ```
+  static ComputedField<E> computed<E>(
+    String name,
+    E? Function(ValueOf valueOf) compute,
+  ) {
+    return ComputedField<E>(name, compute);
+  }
+}
+
+/// A derived, read-only [Field] whose value is recomputed from other fields.
+///
+/// Created via [Field.computed]. Do not instantiate directly.
+class ComputedField<T> extends Field<T> {
+  final T? Function(ValueOf valueOf) _compute;
+
+  ComputedField(super.localName, this._compute) {
+    _deferredSetup.add(() {
+      form!.addListener(_recompute);
+      _recompute();
+    });
+  }
+
+  void _recompute() {
+    if (form == null) return;
+    Field<O> valueOf<O>(String path) => form!.getField<O>(path);
+    final newVal = _compute(valueOf);
+    if (_value != newVal) {
+      _value = newVal;
+      _notifyIfMounted();
+      form?._invalidateCache();
+    }
+  }
+
+  @override
+  set value(dynamic val) => throw UnsupportedError(
+    'ComputedField "$name" is read-only — its value is derived automatically.',
+  );
+
+  @override
+  bool get isDirty => false;
+
+  @override
+  void reset({Object? to = Field._resetSentinel}) {} // no-op
+
+  @override
+  void _loadValue(dynamic val) {} // no-op
 }
 
 // =============================================================================
@@ -1217,9 +1446,11 @@ class FormController<T> extends ChangeNotifier {
 
   bool _isSubmitting = false;
 
-  // Cache for toJson and errors
+  // Cache for toJson and errors (one slot per omitNulls × omitDisabled combination)
   Map<String, dynamic>? _jsonCache;
   Map<String, dynamic>? _jsonCacheOmitNulls;
+  Map<String, dynamic>? _jsonCacheOmitDisabled;
+  Map<String, dynamic>? _jsonCacheOmitBoth;
   Map<String, String>? _errorsCache;
 
   /// Called when [submit] starts executing [onSubmit], after all validators
@@ -1323,6 +1554,8 @@ class FormController<T> extends ChangeNotifier {
   void _invalidateCache() {
     _jsonCache = null;
     _jsonCacheOmitNulls = null;
+    _jsonCacheOmitDisabled = null;
+    _jsonCacheOmitBoth = null;
     _errorsCache = null;
   }
 
@@ -1710,23 +1943,39 @@ class FormController<T> extends ChangeNotifier {
   /// print(form.toJson());                  // {'name': null, 'email': 'alice@example.com'}
   /// print(form.toJson(omitNulls: true));   // {'email': 'alice@example.com'}
   /// ```
-  Map<String, dynamic> toJson({bool omitNulls = false}) {
-    if (!omitNulls && _jsonCache != null) return _jsonCache!;
-    if (omitNulls && _jsonCacheOmitNulls != null) return _jsonCacheOmitNulls!;
+  Map<String, dynamic> toJson({
+    bool omitNulls = false,
+    bool omitDisabled = false,
+  }) {
+    if (!omitNulls && !omitDisabled && _jsonCache != null) return _jsonCache!;
+    if (omitNulls && !omitDisabled && _jsonCacheOmitNulls != null) {
+      return _jsonCacheOmitNulls!;
+    }
+    if (!omitNulls && omitDisabled && _jsonCacheOmitDisabled != null) {
+      return _jsonCacheOmitDisabled!;
+    }
+    if (omitNulls && omitDisabled && _jsonCacheOmitBoth != null) {
+      return _jsonCacheOmitBoth!;
+    }
 
     final map = <String, dynamic>{};
     for (var field in _capturedFields) {
+      if (omitDisabled && field.isDisabled) continue;
       final v = field.jsonValue;
       if (omitNulls && v == null) continue;
       _putNestedValue(map, field.pathSegments, v);
     }
 
-    if (omitNulls) _pruneEmptyMaps(map);
+    if (omitNulls || omitDisabled) _pruneEmptyMaps(map);
 
-    if (omitNulls) {
-      _jsonCacheOmitNulls = map;
-    } else {
+    if (!omitNulls && !omitDisabled) {
       _jsonCache = map;
+    } else if (omitNulls && !omitDisabled) {
+      _jsonCacheOmitNulls = map;
+    } else if (!omitNulls && omitDisabled) {
+      _jsonCacheOmitDisabled = map;
+    } else {
+      _jsonCacheOmitBoth = map;
     }
     return map;
   }
@@ -1757,6 +2006,201 @@ class FormController<T> extends ChangeNotifier {
     for (final key in keysToRemove) {
       map.remove(key);
     }
+  }
+
+  /// Populates fields from a (potentially nested) JSON map.
+  ///
+  /// Nested maps are flattened into dot-notation paths before matching fields
+  /// (e.g. `{'address': {'city': 'SP'}}` sets the field named `'address.city'`).
+  /// Unknown keys are silently ignored.
+  ///
+  /// [setAsInitial] — when `true`, each field's [Field.initialValue] is also
+  /// updated to the loaded value, so [Field.isDirty] compares against the
+  /// loaded state and [Field.reset] returns to it rather than the constructor
+  /// value. Use this for edit screens where you load data after form creation.
+  ///
+  /// All assignments are batched into a single notification.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Edit screen: load user data and set as baseline for dirty-checking
+  /// final user = await api.getUser(id);
+  /// form.fromJson(user.toJson(), setAsInitial: true);
+  ///
+  /// // form.isDirty is false until the user edits something
+  /// // form.reset() returns to the loaded user data
+  /// ```
+  void fromJson(Map<String, dynamic> json, {bool setAsInitial = false}) {
+    final flat = <String, dynamic>{};
+    _flattenMap(json, '', flat);
+    _beginBatch();
+    try {
+      for (final entry in flat.entries) {
+        final field = _fieldMap[entry.key];
+        if (field == null) continue;
+        if (setAsInitial) {
+          field._loadValue(entry.value);
+        } else {
+          field.value = entry.value;
+        }
+      }
+    } finally {
+      _endBatch();
+    }
+  }
+
+  static void _flattenMap(
+    Map<String, dynamic> map,
+    String prefix,
+    Map<String, dynamic> out,
+  ) {
+    for (final entry in map.entries) {
+      final key = prefix.isEmpty ? entry.key : '$prefix.${entry.key}';
+      if (entry.value is Map<String, dynamic>) {
+        _flattenMap(entry.value as Map<String, dynamic>, key, out);
+      } else {
+        out[key] = entry.value;
+      }
+    }
+  }
+
+  /// Returns a nested map containing only fields whose value has changed from
+  /// their [Field.initialValue].
+  ///
+  /// Each field's [Field.jsonValue] is used (mask stripping and custom
+  /// [Field.transformToJson] transformers are applied). Dot-notation paths are
+  /// expanded into nested maps — the result is ready for a PATCH request.
+  ///
+  /// Example:
+  /// ```dart
+  /// form.fromJson(original, setAsInitial: true);
+  /// form.fields.name.value = 'Bob';
+  ///
+  /// final patch = form.dirtyValues(); // {'name': 'Bob'} — only changed fields
+  /// await api.patch(id, patch);
+  /// ```
+  Map<String, dynamic> dirtyValues() {
+    final map = <String, dynamic>{};
+    for (final field in _capturedFields) {
+      if (field.isDirty) {
+        _putNestedValue(map, field.pathSegments, field.jsonValue);
+      }
+    }
+    return map;
+  }
+
+  /// Clears validation errors on fields matching [path].
+  ///
+  /// When [path] is `null` or empty, all fields are cleared. When [path] is
+  /// provided, only fields whose name starts with [path] are affected — the
+  /// same prefix logic used by [trigger].
+  ///
+  /// Useful for dismissing server-side errors in bulk after a failed submit.
+  ///
+  /// Example:
+  /// ```dart
+  /// form.clearErrors();             // clear all errors
+  /// form.clearErrors(path: 'address'); // clear only address.* fields
+  /// ```
+  void clearErrors({String? path}) {
+    final fields = (path == null || path.isEmpty)
+        ? _capturedFields
+        : (_prefixIndex[path] ?? const []);
+    _beginBatch();
+    try {
+      for (final f in fields) {
+        f.clearError();
+      }
+    } finally {
+      _endBatch();
+    }
+  }
+
+  /// Applies a map of server-side errors to matching fields in a single batch.
+  ///
+  /// [errors] maps dot-notation field paths to error messages. Unknown keys are
+  /// silently ignored. All [Field.invalidate] calls are batched so listeners
+  /// receive exactly **one** notification.
+  ///
+  /// [shouldFocusFirst] — when `true`, the first matched field requests focus.
+  /// [shouldScrollFirst] — when `true`, the first matched field scrolls into view.
+  ///
+  /// Example:
+  /// ```dart
+  /// form.setErrors({'email': 'Already taken', 'cpf': 'Invalid'});
+  /// ```
+  void setErrors(
+    Map<String, String> errors, {
+    bool shouldFocusFirst = false,
+    bool shouldScrollFirst = false,
+  }) {
+    _beginBatch();
+    bool firstApplied = false;
+    try {
+      for (final entry in errors.entries) {
+        final field = _fieldMap[entry.key];
+        if (field == null) continue;
+        field.invalidate(
+          entry.value,
+          shouldFocus: !firstApplied && shouldFocusFirst,
+          shouldScroll: !firstApplied && shouldScrollFirst,
+        );
+        firstApplied = true;
+      }
+    } finally {
+      _endBatch();
+    }
+  }
+
+  /// Serializes the form to a URL query string.
+  ///
+  /// Calls [toJson] with [omitNulls], flattens any nested maps into dot-notation
+  /// keys, and URL-encodes both keys and values.
+  ///
+  /// [omitNulls] defaults to `true` — fields with `null` values are excluded.
+  ///
+  /// Example:
+  /// ```dart
+  /// // form has name='Alice', age=30
+  /// form.toQueryString(); // 'name=Alice&age=30'
+  /// ```
+  String toQueryString({bool omitNulls = true}) {
+    final json = toJson(omitNulls: omitNulls);
+    final flat = <String, dynamic>{};
+    _flattenMap(json, '', flat);
+    return flat.entries
+        .map(
+          (e) =>
+              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value?.toString() ?? '')}',
+        )
+        .join('&');
+  }
+
+  /// The fraction of non-disabled, non-computed fields that have a non-empty value.
+  ///
+  /// Returns a value between `0.0` (all empty) and `1.0` (all filled).
+  /// Returns `1.0` when there are no active fields.
+  ///
+  /// A field is considered filled when its [Field.jsonValue] is non-null,
+  /// non-empty string, and non-empty iterable.
+  ///
+  /// Example:
+  /// ```dart
+  /// print(form.completionPercent); // 0.5 when half the fields are filled
+  /// ```
+  double get completionPercent {
+    final active = _capturedFields
+        .where((f) => !f.isDisabled && f is! ComputedField)
+        .toList();
+    if (active.isEmpty) return 1.0;
+    final filled = active.where((f) {
+      final v = f.jsonValue;
+      if (v == null) return false;
+      if (v is String && v.isEmpty) return false;
+      if (v is Iterable && v.isEmpty) return false;
+      return true;
+    });
+    return filled.length / active.length;
   }
 
   /// Removes all internal field listeners and disposes every captured [Field].

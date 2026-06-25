@@ -271,8 +271,7 @@ void main() {
       bool? endedValid;
       String? endedError;
 
-      final field = Field<String>('x')
-        ..addValidator('fail', (_) => true);
+      final field = Field<String>('x')..addValidator('fail', (_) => true);
       addTearDown(field.dispose);
 
       field.onValidationStart = () => started = true;
@@ -453,15 +452,18 @@ void main() {
   // Field – applyEach
   // ===========================================================================
   group('Field – applyEach', () {
-    test('valida cada item de uma lista e retorna false no primeiro inválido', () {
-      final field = Field<List<String>>('tags')
-        ..applyEach<String>(
-          (f) => f.addValidator('Vazio', (v) => v == null || v.isEmpty),
-        );
-      addTearDown(field.dispose);
-      field.value = ['ok', '', 'valid'];
-      expect(field.validate(), isFalse);
-    });
+    test(
+      'valida cada item de uma lista e retorna false no primeiro inválido',
+      () {
+        final field = Field<List<String>>('tags')
+          ..applyEach<String>(
+            (f) => f.addValidator('Vazio', (v) => v == null || v.isEmpty),
+          );
+        addTearDown(field.dispose);
+        field.value = ['ok', '', 'valid'];
+        expect(field.validate(), isFalse);
+      },
+    );
 
     test('retorna true quando todos os itens são válidos', () {
       final field = Field<List<String>>('tags')
@@ -593,7 +595,9 @@ void main() {
     });
 
     test('errors retorna mapa apenas com campos com error', () {
-      final form = formCtrl(() => (a: Field<String>('a'), b: Field<String>('b')));
+      final form = formCtrl(
+        () => (a: Field<String>('a'), b: Field<String>('b')),
+      );
       addTearDown(form.dispose);
       form.fields.a.invalidate('Erro em A');
       expect(form.errors.length, equals(1));
@@ -648,7 +652,8 @@ void main() {
 
     test('resetField reseta apenas o campo indicado', () {
       final form = formCtrl(
-        () => (a: Field<String>('a', 'init_a'), b: Field<String>('b', 'init_b')),
+        () =>
+            (a: Field<String>('a', 'init_a'), b: Field<String>('b', 'init_b')),
       );
       addTearDown(form.dispose);
       form.fields.a.value = 'changed';
@@ -695,7 +700,10 @@ void main() {
   group('FormController – toJson', () {
     test('toJson produz mapa plano para campos simples', () {
       final form = formCtrl(
-        () => (email: Field<String>('email', 'a@b.com'), age: Field<int>('age', 30)),
+        () => (
+          email: Field<String>('email', 'a@b.com'),
+          age: Field<int>('age', 30),
+        ),
       );
       addTearDown(form.dispose);
       final json = form.toJson();
@@ -704,9 +712,14 @@ void main() {
     });
 
     test('toJson produz mapa aninhado para formGroup', () {
-      final form = formCtrl(() => (
-            address: formGroup('address', () => (city: Field<String>('city', 'SP'))),
-          ));
+      final form = formCtrl(
+        () => (
+          address: formGroup(
+            'address',
+            () => (city: Field<String>('city', 'SP')),
+          ),
+        ),
+      );
       addTearDown(form.dispose);
       final json = form.toJson();
       expect((json['address'] as Map)['city'], equals('SP'));
@@ -746,8 +759,10 @@ void main() {
     test('submit NÃO chama onSubmit quando form é inválido', () async {
       var submitted = false;
       final form = formCtrl(
-        () => (name: Field<String>('name')
-          ..addValidator('Obrigatório', (v) => v == null || v.isEmpty)),
+        () => (
+          name: Field<String>('name')
+            ..addValidator('Obrigatório', (v) => v == null || v.isEmpty),
+        ),
       );
       addTearDown(form.dispose);
       await form.submit((_) async => submitted = true);
@@ -822,12 +837,15 @@ void main() {
   // FormController – trigger
   // ===========================================================================
   group('FormController – trigger', () {
-    test('trigger() com path que não encontra nenhum campo retorna true', () async {
-      final form = formCtrl(() => (x: Field<String>('x')));
-      addTearDown(form.dispose);
-      final result = await form.trigger(path: 'inexistente');
-      expect(result, isTrue);
-    });
+    test(
+      'trigger() com path que não encontra nenhum campo retorna true',
+      () async {
+        final form = formCtrl(() => (x: Field<String>('x')));
+        addTearDown(form.dispose);
+        final result = await form.trigger(path: 'inexistente');
+        expect(result, isTrue);
+      },
+    );
   });
 
   // ===========================================================================
@@ -873,7 +891,10 @@ void main() {
   group('FormController – toJson(omitNulls)', () {
     test('inclui null por padrão', () {
       final form = formCtrl(
-        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+        () => (
+          name: Field<String>('name', 'Alice'),
+          alias: Field<String>('alias'),
+        ),
       );
       addTearDown(form.dispose);
 
@@ -885,7 +906,10 @@ void main() {
 
     test('exclui folha nula com omitNulls: true', () {
       final form = formCtrl(
-        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+        () => (
+          name: Field<String>('name', 'Alice'),
+          alias: Field<String>('alias'),
+        ),
       );
       addTearDown(form.dispose);
 
@@ -912,7 +936,10 @@ void main() {
       final form = formCtrl(() {
         final address = formGroup(
           'address',
-          () => (street: Field<String>('street', 'Rua A'), city: Field<String>('city')),
+          () => (
+            street: Field<String>('street', 'Rua A'),
+            city: Field<String>('city'),
+          ),
         );
         return (address: address);
       });
@@ -927,7 +954,10 @@ void main() {
     test('poda mapa avô quando filho e neto são todos nulos', () {
       final form = formCtrl(() {
         final billing = formGroup('billing', () {
-          final addr = formGroup('address', () => (street: Field<String>('street')));
+          final addr = formGroup(
+            'address',
+            () => (street: Field<String>('street')),
+          );
           return (address: addr);
         });
         return (billing: billing);
@@ -940,7 +970,10 @@ void main() {
 
     test('cache independente — omitNulls e não-omitNulls não interferem', () {
       final form = formCtrl(
-        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+        () => (
+          name: Field<String>('name', 'Alice'),
+          alias: Field<String>('alias'),
+        ),
       );
       addTearDown(form.dispose);
 
@@ -955,7 +988,10 @@ void main() {
 
     test('invalida ambos os caches ao mudar valor', () {
       final form = formCtrl(
-        () => (name: Field<String>('name', 'Alice'), alias: Field<String>('alias')),
+        () => (
+          name: Field<String>('name', 'Alice'),
+          alias: Field<String>('alias'),
+        ),
       );
       addTearDown(form.dispose);
 
@@ -975,45 +1011,57 @@ void main() {
   // formGroup – applyWhen
   // ===========================================================================
   group('formGroup – applyWhen', () {
-    test('condição false pula validadores de todos os campos do grupo', () async {
-      final form = formCtrl(() {
-        final billing = formGroup(
-          'billing',
-          () => (
-            street: Field<String>('street').required(),
-            zip: Field<String>('zip').required(),
-          ),
-          applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
-        );
-        return (hasBilling: Field<bool>('hasBilling', false), billing: billing);
-      });
-      addTearDown(form.dispose);
+    test(
+      'condição false pula validadores de todos os campos do grupo',
+      () async {
+        final form = formCtrl(() {
+          final billing = formGroup(
+            'billing',
+            () => (
+              street: Field<String>('street').required(),
+              zip: Field<String>('zip').required(),
+            ),
+            applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
+          );
+          return (
+            hasBilling: Field<bool>('hasBilling', false),
+            billing: billing,
+          );
+        });
+        addTearDown(form.dispose);
 
-      await form.trigger();
-      expect(form.fields.billing.street.error, isNull);
-      expect(form.fields.billing.zip.error, isNull);
-      expect(form.valid, isTrue);
-    });
+        await form.trigger();
+        expect(form.fields.billing.street.error, isNull);
+        expect(form.fields.billing.zip.error, isNull);
+        expect(form.valid, isTrue);
+      },
+    );
 
-    test('condição true executa validadores de todos os campos do grupo', () async {
-      final form = formCtrl(() {
-        final billing = formGroup(
-          'billing',
-          () => (
-            street: Field<String>('street').required(),
-            zip: Field<String>('zip').required(),
-          ),
-          applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
-        );
-        return (hasBilling: Field<bool>('hasBilling', true), billing: billing);
-      });
-      addTearDown(form.dispose);
+    test(
+      'condição true executa validadores de todos os campos do grupo',
+      () async {
+        final form = formCtrl(() {
+          final billing = formGroup(
+            'billing',
+            () => (
+              street: Field<String>('street').required(),
+              zip: Field<String>('zip').required(),
+            ),
+            applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
+          );
+          return (
+            hasBilling: Field<bool>('hasBilling', true),
+            billing: billing,
+          );
+        });
+        addTearDown(form.dispose);
 
-      await form.trigger();
-      expect(form.fields.billing.street.error, isNotNull);
-      expect(form.fields.billing.zip.error, isNotNull);
-      expect(form.valid, isFalse);
-    });
+        await form.trigger();
+        expect(form.fields.billing.street.error, isNotNull);
+        expect(form.fields.billing.zip.error, isNotNull);
+        expect(form.valid, isFalse);
+      },
+    );
 
     test('composição com applyWhen de campo — AND lógico', () async {
       final form = formCtrl(() {
@@ -1051,7 +1099,11 @@ void main() {
       final form = formCtrl(() {
         final billing = formGroup(
           'billing',
-          () => (zip: Field<String>('zip').addValidatorAsync('CEP inválido', (_) async => true)),
+          () => (
+            zip: Field<String>(
+              'zip',
+            ).addValidatorAsync('CEP inválido', (_) async => true),
+          ),
           applyWhen: (valueOf) => valueOf<bool>('hasBilling').value == true,
         );
         return (hasBilling: Field<bool>('hasBilling', false), billing: billing);
@@ -1078,8 +1130,12 @@ void main() {
           doc: Field<String>('doc').switchWith<String>(
             (valueOf) => valueOf<String>('mode').value,
             {
-              'BR': (f) => f.addValidator('BR inválido', (v) => v == null || v.isEmpty),
-              'US': (f) => f.addValidator('US inválido', (v) => v == null || v.length < 9),
+              'BR': (f) =>
+                  f.addValidator('BR inválido', (v) => v == null || v.isEmpty),
+              'US': (f) => f.addValidator(
+                'US inválido',
+                (v) => v == null || v.length < 9,
+              ),
             },
           ),
         ),
@@ -1098,19 +1154,21 @@ void main() {
       final form = formCtrl(
         () => (
           type: Field<String>('type', 'A'),
-          value: Field<String>('value').switchWith<String>(
-            (valueOf) => valueOf<String>('type').value,
-            {
-              'A': (f) => f.addValidator('erro A', (v) => v == null),
-              'B': (f) => f.addValidator('erro B', (v) => v == null),
-              'C': (f) => f.addValidator('erro C', (v) => v == null),
-            },
-          ),
+          value: Field<String>('value')
+              .switchWith<String>((valueOf) => valueOf<String>('type').value, {
+                'A': (f) => f.addValidator('erro A', (v) => v == null),
+                'B': (f) => f.addValidator('erro B', (v) => v == null),
+                'C': (f) => f.addValidator('erro C', (v) => v == null),
+              }),
         ),
       );
       addTearDown(form.dispose);
 
-      for (final entry in {'A': 'erro A', 'B': 'erro B', 'C': 'erro C'}.entries) {
+      for (final entry in {
+        'A': 'erro A',
+        'B': 'erro B',
+        'C': 'erro C',
+      }.entries) {
         form.fields.type.value = entry.key;
         form.fields.value.value = null;
         await form.trigger();
@@ -1134,21 +1192,24 @@ void main() {
       expect(form.fields.doc.error, isNull);
     });
 
-    test('keySelector retorna chave sem case e orElse é null → campo válido', () async {
-      final form = formCtrl(
-        () => (
-          mode: Field<String>('mode', 'XX'),
-          doc: Field<String>('doc').switchWith<String>(
-            (valueOf) => valueOf<String>('mode').value,
-            {'BR': (f) => f.required()},
+    test(
+      'keySelector retorna chave sem case e orElse é null → campo válido',
+      () async {
+        final form = formCtrl(
+          () => (
+            mode: Field<String>('mode', 'XX'),
+            doc: Field<String>('doc').switchWith<String>(
+              (valueOf) => valueOf<String>('mode').value,
+              {'BR': (f) => f.required()},
+            ),
           ),
-        ),
-      );
-      addTearDown(form.dispose);
+        );
+        addTearDown(form.dispose);
 
-      await form.trigger();
-      expect(form.fields.doc.error, isNull);
-    });
+        await form.trigger();
+        expect(form.fields.doc.error, isNull);
+      },
+    );
 
     test('dependsOn: limpa erro quando campo observado muda', () {
       fakeAsync((async) {
@@ -1210,7 +1271,12 @@ void main() {
             pais: Field<String>('pais', 'BR'),
             doc: Field<String>('doc', 'preenchido').switchWith<String>(
               (valueOf) => valueOf<String>('pais').value,
-              {'BR': (f) => f.addValidator('cpf inválido', (v) => v != null && v.length < 11)},
+              {
+                'BR': (f) => f.addValidator(
+                  'cpf inválido',
+                  (v) => v != null && v.length < 11,
+                ),
+              },
               dependsOn: ['pais'],
             ),
           ),
@@ -1304,6 +1370,394 @@ void main() {
 
       await form.trigger();
       expect(form.fields.doc.error, isNotNull);
+    });
+  });
+
+  // ===========================================================================
+  // Field – detached
+  // ===========================================================================
+  group('Field – detached', () {
+    test('Field.detached não é registrado no FormTracker', () {
+      final form = formCtrl(() {
+        final tracked = Field<String>('tracked');
+        Field.detached<String>('orphan'); // não deve aparecer no form
+        return tracked;
+      });
+      addTearDown(form.dispose);
+      expect(form.debugFields.length, equals(1));
+      expect(form.debugFields.first.name, equals('tracked'));
+    });
+
+    test('Field.detached usa o nome exatamente como passado (sem prefix)', () {
+      final f = Field.detached<String>('my.field');
+      addTearDown(f.dispose);
+      expect(f.name, equals('my.field'));
+    });
+
+    test('Field.detached com initialValue funciona normalmente', () {
+      final f = Field.detached<int>('age', 30);
+      addTearDown(f.dispose);
+      expect(f.value, equals(30));
+      expect(f.isDirty, isFalse);
+    });
+
+    test('Field.detached aceita validadores e valida corretamente', () {
+      final f = Field.detached<String>('email')
+        ..addValidator('Obrigatório', (v) => v == null || v.isEmpty);
+      addTearDown(f.dispose);
+      f.value = '';
+      expect(f.validate(), isFalse);
+      f.value = 'a@b.com';
+      expect(f.validate(), isTrue);
+    });
+
+    test('pauseTracking é restaurado mesmo se o construtor pudesse lançar', () {
+      // Verifica que FormTracker não fica preso em pauseTracking=true
+      Field.detached<String>('safe');
+      // Se pauseTracking vazasse, este formCtrl não capturaria nenhum campo
+      final form = formCtrl(() => Field<String>('x'));
+      addTearDown(form.dispose);
+      expect(form.debugFields.length, equals(1));
+    });
+  });
+
+  // ===========================================================================
+  // Field – clearError
+  // ===========================================================================
+  group('Field – clearError', () {
+    test('clearError limpa o erro sem revalidar', () {
+      final f = Field<String>('x')
+        ..addValidator('Erro', (v) => true); // sempre falha
+      addTearDown(f.dispose);
+      f.validate(); // seta o erro
+      expect(f.error, equals('Erro'));
+      f.clearError();
+      expect(f.error, isNull);
+    });
+
+    test('clearError não-op quando error já é null', () {
+      final f = Field<String>('x');
+      addTearDown(f.dispose);
+      var notified = false;
+      f.addListener(() => notified = true);
+      f.clearError();
+      expect(notified, isFalse);
+    });
+
+    test('clearError notifica listeners quando havia erro', () {
+      final f = Field<String>('x');
+      addTearDown(f.dispose);
+      f.invalidate('erro externo');
+      var notified = false;
+      f.addListener(() => notified = true);
+      f.clearError();
+      expect(notified, isTrue);
+      expect(f.error, isNull);
+    });
+
+    test('invalidate seguido de clearError não revalida', () {
+      final f = Field<String>('x')..addValidator('Sempre erro', (v) => true);
+      addTearDown(f.dispose);
+      f.invalidate('Erro servidor');
+      f.clearError();
+      // error é null após clearError; validators NÃO foram re-executados
+      expect(f.error, isNull);
+    });
+  });
+
+  // ===========================================================================
+  // Field – disable / enable
+  // ===========================================================================
+  group('Field – disable / enable', () {
+    test('disable seta isDisabled=true e limpa o error', () {
+      final f = Field<String>('x');
+      addTearDown(f.dispose);
+      f.invalidate('erro');
+      f.disable();
+      expect(f.isDisabled, isTrue);
+      expect(f.error, isNull);
+    });
+
+    test('enable restaura isDisabled=false', () {
+      final f = Field<String>('x');
+      addTearDown(f.dispose);
+      f.disable();
+      f.enable();
+      expect(f.isDisabled, isFalse);
+    });
+
+    test('campo desabilitado ignora todos os validators (sync)', () {
+      final form = formCtrl(
+        () => (
+          name: Field<String>(
+            'name',
+          ).addValidator('Obrigatório', (v) => v == null || v.isEmpty),
+        ),
+      );
+      addTearDown(form.dispose);
+      form.fields.name.disable();
+      expect(form.fields.name.validate(), isTrue);
+      expect(form.fields.name.error, isNull);
+    });
+
+    test('campo desabilitado não contribui para form.errors', () async {
+      final form = formCtrl(
+        () => (
+          name: Field<String>(
+            'name',
+          ).addValidator('Obrigatório', (v) => v == null || v.isEmpty),
+        ),
+      );
+      addTearDown(form.dispose);
+      form.fields.name.disable();
+      await form.trigger();
+      expect(form.errors, isEmpty);
+    });
+
+    test('campo desabilitado ainda aparece em toJson por padrão', () {
+      final form = formCtrl(() => (x: Field<String>('x', 'valor')));
+      addTearDown(form.dispose);
+      form.fields.x.disable();
+      expect(form.toJson()['x'], equals('valor'));
+    });
+
+    test('toJson(omitDisabled: true) exclui campos desabilitados', () {
+      final form = formCtrl(
+        () => (
+          active: Field<String>('active', 'keep'),
+          disabled: Field<String>('disabled', 'drop')..disable(),
+        ),
+      );
+      addTearDown(form.dispose);
+      final json = form.toJson(omitDisabled: true);
+      expect(json.containsKey('active'), isTrue);
+      expect(json.containsKey('disabled'), isFalse);
+    });
+
+    test(
+      'toJson(omitDisabled: true) remove grupos aninhados que ficam vazios',
+      () {
+        final form = formCtrl(
+          () => (
+            addr: formGroup('addr', () => (city: Field<String>('city', 'SP'))),
+          ),
+        );
+        addTearDown(form.dispose);
+        form.fields.addr.city.disable();
+        final json = form.toJson(omitDisabled: true);
+        expect(json.containsKey('addr'), isFalse);
+      },
+    );
+
+    test('disable() é no-op se já estiver desabilitado', () {
+      final f = Field<String>('x');
+      addTearDown(f.dispose);
+      f.disable();
+      var count = 0;
+      f.addListener(() => count++);
+      f.disable();
+      expect(count, equals(0));
+    });
+
+    test('enable() é no-op se já estiver habilitado', () {
+      final f = Field<String>('x');
+      addTearDown(f.dispose);
+      var count = 0;
+      f.addListener(() => count++);
+      f.enable();
+      expect(count, equals(0));
+    });
+
+    test('re-habilitar restaura validação normal', () {
+      final form = formCtrl(
+        () => (
+          name: Field<String>(
+            'name',
+          ).addValidator('Obrigatório', (v) => v == null || v.isEmpty),
+        ),
+      );
+      addTearDown(form.dispose);
+      form.fields.name.disable();
+      form.fields.name.enable();
+      form.fields.name.validate();
+      expect(form.fields.name.error, equals('Obrigatório'));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – fromJson
+  // ===========================================================================
+  group('FormController – fromJson', () {
+    test('fromJson preenche campo a partir de mapa plano', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      form.fromJson({'name': 'Alice'});
+      expect(form.fields.name.value, equals('Alice'));
+    });
+
+    test('fromJson expande mapa aninhado em dot-notation', () {
+      final form = formCtrl(
+        () => (addr: formGroup('addr', () => (city: Field<String>('city')))),
+      );
+      addTearDown(form.dispose);
+      form.fromJson({
+        'addr': {'city': 'São Paulo'},
+      });
+      expect(form.fields.addr.city.value, equals('São Paulo'));
+    });
+
+    test('fromJson ignora chaves desconhecidas', () {
+      final form = formCtrl(() => (x: Field<String>('x')));
+      addTearDown(form.dispose);
+      expect(
+        () => form.fromJson({'x': 'ok', 'unknown': 'ignored'}),
+        returnsNormally,
+      );
+      expect(form.fields.x.value, equals('ok'));
+    });
+
+    test('fromJson sem setAsInitial não altera initialValue', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      form.fromJson({'name': 'Bob'});
+      expect(form.fields.name.isDirty, isTrue);
+      expect(form.fields.name.initialValue, isNull);
+    });
+
+    test('fromJson com setAsInitial:true atualiza initialValue', () {
+      final form = formCtrl(() => (name: Field<String>('name')));
+      addTearDown(form.dispose);
+      form.fromJson({'name': 'Bob'}, setAsInitial: true);
+      expect(form.fields.name.value, equals('Bob'));
+      expect(form.fields.name.initialValue, equals('Bob'));
+      expect(form.fields.name.isDirty, isFalse);
+    });
+
+    test(
+      'fromJson setAsInitial:true faz reset() voltar ao valor carregado',
+      () {
+        final form = formCtrl(() => (name: Field<String>('name')));
+        addTearDown(form.dispose);
+        form.fromJson({'name': 'Alice'}, setAsInitial: true);
+        form.fields.name.value = 'Bob';
+        form.fields.name.reset();
+        expect(form.fields.name.value, equals('Alice'));
+      },
+    );
+
+    test('fromJson é batched — emite 1 notificação para N campos', () {
+      final form = formCtrl(
+        () => (
+          a: Field<String>('a'),
+          b: Field<String>('b'),
+          c: Field<String>('c'),
+        ),
+      );
+      addTearDown(form.dispose);
+      var count = 0;
+      form.addListener(() => count++);
+      form.fromJson({'a': '1', 'b': '2', 'c': '3'});
+      expect(count, equals(1));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – dirtyValues
+  // ===========================================================================
+  group('FormController – dirtyValues', () {
+    test('retorna mapa vazio quando nenhum campo é dirty', () {
+      final form = formCtrl(
+        () =>
+            (name: Field<String>('name', 'Alice'), age: Field<int>('age', 30)),
+      );
+      addTearDown(form.dispose);
+      expect(form.dirtyValues(), isEmpty);
+    });
+
+    test('retorna apenas campos modificados', () {
+      final form = formCtrl(
+        () =>
+            (name: Field<String>('name', 'Alice'), age: Field<int>('age', 30)),
+      );
+      addTearDown(form.dispose);
+      form.fields.name.value = 'Bob';
+      final patch = form.dirtyValues();
+      expect(patch.containsKey('name'), isTrue);
+      expect(patch.containsKey('age'), isFalse);
+      expect(patch['name'], equals('Bob'));
+    });
+
+    test('retorna estrutura aninhada para formGroup', () {
+      final form = formCtrl(
+        () => (
+          addr: formGroup('addr', () => (city: Field<String>('city', 'SP'))),
+        ),
+      );
+      addTearDown(form.dispose);
+      form.fields.addr.city.value = 'RJ';
+      final patch = form.dirtyValues();
+      expect((patch['addr'] as Map)['city'], equals('RJ'));
+    });
+
+    test('aplica transformToJson nos valores sujos', () {
+      final form = formCtrl(() => (cpf: Field<String>('cpf').maskCPF()));
+      addTearDown(form.dispose);
+      form.fields.cpf.value = '12345678909';
+      final patch = form.dirtyValues();
+      // jsonValue de maskCPF remove a máscara
+      expect(patch['cpf'], equals('12345678909'));
+    });
+  });
+
+  // ===========================================================================
+  // FormController – clearErrors
+  // ===========================================================================
+  group('FormController – clearErrors', () {
+    test('clearErrors() sem path limpa todos os erros', () async {
+      final form = formCtrl(
+        () => (
+          a: Field<String>('a').addValidator('e', (v) => true),
+          b: Field<String>('b').addValidator('e', (v) => true),
+        ),
+      );
+      addTearDown(form.dispose);
+      await form.trigger();
+      expect(form.errors.length, equals(2));
+      form.clearErrors();
+      expect(form.errors, isEmpty);
+    });
+
+    test('clearErrors(path:) limpa apenas campos do grupo', () async {
+      final form = formCtrl(
+        () => (
+          addr: formGroup(
+            'addr',
+            () => (city: Field<String>('city').addValidator('e', (v) => true)),
+          ),
+          name: Field<String>('name').addValidator('e', (v) => true),
+        ),
+      );
+      addTearDown(form.dispose);
+      await form.trigger();
+      expect(form.errors.length, equals(2));
+      form.clearErrors(path: 'addr');
+      expect(form.errors.containsKey('addr.city'), isFalse);
+      expect(form.errors.containsKey('name'), isTrue);
+    });
+
+    test('clearErrors é batched — emite 1 notificação', () async {
+      final form = formCtrl(
+        () => (
+          a: Field<String>('a').addValidator('e', (v) => true),
+          b: Field<String>('b').addValidator('e', (v) => true),
+        ),
+      );
+      addTearDown(form.dispose);
+      await form.trigger();
+      var count = 0;
+      form.addListener(() => count++);
+      form.clearErrors();
+      expect(count, equals(1));
     });
   });
 }

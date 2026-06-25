@@ -2,34 +2,82 @@
 
 > 🇺🇸 [Read in English](README.md)
 
-Gerenciar formulários complexos no Flutter costuma significar equilibrar `TextEditingController`, `GlobalKey<FormState>`, lógica de validação espalhada pelo código e atualizações de estado imperativas. O **signal_form** foi criado para unificar e simplificar tudo isso.
-
-Inspirado no [Angular Signal Forms](https://angular.dev/essentials/signal-forms), ele traz uma abordagem **baseada em schema e fortemente tipada** para formulários Flutter: você declara seus campos e regras de validação uma única vez, em um só lugar, e a biblioteca cuida do resto.
-
-- **Validação declarativa** — as regras ficam junto ao campo ao qual pertencem, não espalhadas pela árvore de widgets
-- **API fluente** — encadeie validadores em uma única expressão com baixa verbosidade e alta legibilidade
-- **Alto desempenho** — cada campo notifica apenas seus próprios ouvintes; o cache do formulário evita recomputações desnecessárias
-- **Formatação e transformação de dados** — máscaras de entrada e transformadores `toJson` mantêm os valores brutos e serializados sincronizados automaticamente
-- **Widgets prontos** — componentes Material prontos para uso (`SignalTextField`, `SignalDropdown`, `SignalCheckbox` e outros) com exibição de erros, gerenciamento de foco e scroll automático até o primeiro campo inválido já configurados
-- **Extensível** — adicione seus próprios validadores síncronos ou assíncronos como simples extension methods Dart, indistinguíveis dos embutidos
-
-## Funcionalidades
-
-- **Schema-first** — defina a estrutura do formulário em Dart records puro; sem `GlobalKey<FormState>` ou `TextEditingController` para gerenciar
-- **API de validação fluente** — encadeie validadores diretamente na declaração de cada `Field`
-- **Validadores síncronos e assíncronos** — proteção nativa contra race conditions em validações async
-- **Debounce** — throttle de validação em campos com muita digitação
-- **Modos de validação** — `onChange`, `onBlur` ou `onSubmit`
-- **Validação condicional** — `applyWhen` ativa regras somente quando outro campo satisfaz uma condição
-- **Validação entre campos** — compare ou referencie campos irmãos via `valueOf`
-- **Máscara de entrada** — `mask()` embutido com remoção automática no JSON
-- **Auto-scroll em erros** — `submit()` e `trigger()` focam/rolam para o primeiro campo inválido
-- **Widgets prontos** — `SignalTextField`, `SignalDropdown`, `SignalCheckbox`, `SignalSwitch`, `SignalRadioGroup`, `SignalCheckboxGroup`, `SignalSlider`, `SignalRangeSlider`, `SignalDateTimePicker`, `SignalDateRangePicker`, `SignalChoiceChip`, `SignalFilterChip`
-- **Alto desempenho** — cada campo notifica apenas seus próprios ouvintes; um cache no nível do formulário evita recomputações desnecessárias a cada rebuild
-- **Fortemente tipado** — cada `Field<T>`, validador e valor do `toJson` é completamente tipado de ponta a ponta; sem vazamentos de `dynamic` no nível do formulário
-- **Escape hatch** — `SignalFormField<T>` conecta qualquer widget Flutter a um `Field` com reatividade completa
-
----
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Índice</summary>
+  <ol>
+    <li><a href="#instalação">Instalação</a></li>
+    <li>
+      <a href="#início-rápido">Início rápido</a>
+      <ol>
+        <li><a href="#1-defina-o-schema">1. Defina o schema</a></li>
+        <li><a href="#2-conecte-os-widgets">2. Conecte os widgets</a></li>
+        <li><a href="#3-descarte">3. Descarte</a></li>
+        <li><a href="#organização-de-projeto-recomendada">Organização de Projeto Recomendada</a></li>
+      </ol>
+    </li>
+    <li>
+      <a href="#motivação">Motivação</a>
+      <ol>
+        <li><a href="#lista-detalhada-de-funcionalidades">Lista detalhada de funcionalidades</a></li>
+      </ol>
+    </li>
+    <li>
+      <a href="#api-principal">API principal</a>
+      <ol>
+        <li><a href="#fieldt">Field&lt;T&gt;</a></li>
+        <li><a href="#formcontrollert">FormController&lt;T&gt;</a></li>
+        <li><a href="#grupos-aninhados--formgroup">Grupos aninhados — formGroup</a></li>
+      </ol>
+    </li>
+    <li><a href="#modos-de-validação">Modos de validação</a></li>
+    <li>
+      <a href="#validadores-customizados">Validadores customizados</a>
+      <ol>
+        <li><a href="#síncrono--must">Síncrono — must</a></li>
+        <li><a href="#entre-campos--mustwith">Entre campos — mustWith</a></li>
+        <li><a href="#nível-baixo--addvalidator">Nível baixo — addValidator</a></li>
+      </ol>
+    </li>
+    <li><a href="#validadores-assíncronos">Validadores assíncronos</a></li>
+    <li><a href="#validação-condicional--applywhen">Validação condicional — applyWhen</a></li>
+    <li>
+      <a href="#roteamento-condicional--switchwith">Roteamento condicional — switchWith</a>
+      <ol>
+        <li><a href="#chaves-tipadas-com-sealed-classes">Chaves tipadas com sealed classes</a></li>
+      </ol>
+    </li>
+    <li><a href="#regras-expostas-indicador-de-força-de-senha">Regras expostas (indicador de força de senha)</a></li>
+    <li>
+      <a href="#máscara-de-entrada">Máscara de entrada</a>
+      <ol>
+        <li><a href="#referência-de-máscaras">Referência de máscaras</a></li>
+      </ol>
+    </li>
+    <li><a href="#transformador-tojson">Transformador toJson</a></li>
+    <li><a href="#callbacks-de-ciclo-de-vida">Callbacks de ciclo de vida</a></li>
+    <li>
+      <a href="#widgets">Widgets</a>
+      <ol>
+        <li><a href="#signaltextfield">SignalTextField</a></li>
+        <li><a href="#signaldropdownt">SignalDropdown&lt;T&gt;</a></li>
+        <li><a href="#signalcheckbox">SignalCheckbox</a></li>
+        <li><a href="#signalswitch">SignalSwitch</a></li>
+        <li><a href="#signalradiogroupt">SignalRadioGroup&lt;T&gt;</a></li>
+        <li><a href="#signalcheckboxgroupt">SignalCheckboxGroup&lt;T&gt;</a></li>
+        <li><a href="#signalslider">SignalSlider</a></li>
+        <li><a href="#signalrangeslider">SignalRangeSlider</a></li>
+        <li><a href="#signaldatetimepicker">SignalDateTimePicker</a></li>
+        <li><a href="#signaldaterangepicker">SignalDateRangePicker</a></li>
+        <li><a href="#signalchoicechipt-and-signalfilterchipt">SignalChoiceChip&lt;T&gt; e SignalFilterChip&lt;T&gt;</a></li>
+      </ol>
+    </li>
+    <li><a href="#inputs-flutter-vanilla--signalformfieldt">Inputs Flutter vanilla — SignalFormField&lt;T&gt;</a></li>
+    <li><a href="#referência-de-validação">Referência de validação</a></li>
+    <li><a href="#estendendo-com-validadores-customizados">Estendendo com validadores customizados</a></li>
+    <li><a href="#desenvolvimento-assistido-por-ia">Desenvolvimento assistido por IA</a></li>
+  </ol>
+</details>
 
 ## Instalação
 
@@ -114,6 +162,112 @@ void dispose() {
 }
 ```
 
+### Organização de Projeto Recomendada
+
+Para projetos maiores ou mais fáceis de manter, é uma boa prática separar a definição do schema do seu formulário do arquivo de visualização (UI) em arquivos distintos. Isso mantém a lógica de validação e transformação de dados completamente independente dos widgets Flutter.
+
+Aqui está um padrão recomendado:
+
+#### 1. O Arquivo do Schema (`login_schema.dart`)
+
+Este arquivo contém a definição do record do schema, a função geradora e quaisquer extensões de mapeamento de dados:
+
+```dart
+// login_schema.dart
+typedef LoginFormSchema = ({Field<String> email, Field<String> password});
+
+LoginFormSchema loginFormSchema() => (
+  // email
+  email: Field<String>('email')
+      .required(message: 'O e-mail é obrigatório')
+      .email(message: 'E-mail inválido'),
+  // password
+  password: Field<String>('password')
+      .required(message: 'A senha é obrigatória')
+      .minLength(6, message: 'A senha deve ter pelo menos 6 caracteres'),
+);
+
+extension ParseFormExtension on FormController<LoginFormSchema> {
+  LoginDto toDto() {
+    return LoginDto(
+      email: fields.email.value!,
+      password: fields.password.value!,
+    );
+  }
+}
+```
+
+#### 2. O Arquivo da Tela (`login_screen.dart`)
+
+Este arquivo instancia o controller do formulário e monta a interface do usuário:
+
+```dart
+// login_screen.dart
+
+late final form = formCtrl(loginFormSchema);
+
+void submit() => form.submit((data) async => api.login(data.toDto()));
+
+// No seu método build:
+Column(
+  children: [
+    SignalTextField(
+      field: form.fields.email,
+      decoration: const InputDecoration(labelText: 'E-mail'),
+      keyboardType: TextInputType.emailAddress,
+    ),
+    SignalTextField(
+      field: form.fields.password,
+      decoration: const InputDecoration(labelText: 'Senha'),
+      obscureText: true,
+    ),
+    ListenableBuilder(
+      listenable: form,
+      builder: (context, _) {
+        return ElevatedButton(
+          // Desabilita o botão se o formulário for inválido ou se estiver submetendo
+          onPressed: form.valid && !form.isSubmitting
+              ? submit
+              : null,
+          child: form.isSubmitting
+              ? const CircularProgressIndicator()
+              : const Text('Enviar'),
+        );
+      },
+    ),
+  ],
+)
+```
+
+## Motivação
+
+Gerenciar formulários complexos no Flutter costuma significar equilibrar `TextEditingController`, `GlobalKey<FormState>`, lógica de validação espalhada pelo código e atualizações de estado imperativas. O **signal_form** foi criado para unificar e simplificar tudo isso.
+
+Inspirado no [Angular Signal Forms](https://angular.dev/essentials/signal-forms), ele traz uma abordagem **baseada em schema e fortemente tipada** para formulários Flutter: você declara seus campos e regras de validação uma única vez, em um só lugar, e a biblioteca cuida do resto.
+
+- **Validação declarativa** — as regras ficam junto ao campo ao qual pertencem, não espalhadas pela árvore de widgets
+- **API fluente** — encadeie validadores em uma única expressão com baixa verbosidade e alta legibilidade
+- **Alto desempenho** — cada campo notifica apenas seus próprios ouvintes; o cache do formulário evita recomputações desnecessárias
+- **Formatação e transformação de dados** — máscaras de entrada e transformadores `toJson` mantêm os valores brutos e serializados sincronizados automaticamente
+- **Widgets prontos** — componentes Material prontos para uso (`SignalTextField`, `SignalDropdown`, `SignalCheckbox` e outros) com exibição de erros, gerenciamento de foco e scroll automático até o primeiro campo inválido já configurados
+- **Extensível** — adicione seus próprios validadores síncronos ou assíncronos como simples extension methods Dart, indistinguíveis dos embutidos
+
+### Lista detalhada de funcionalidades
+
+- **Schema-first** — defina a estrutura do formulário em Dart records puro; sem `GlobalKey<FormState>` ou `TextEditingController` para gerenciar
+- **API de validação fluente** — encadeie validadores diretamente na declaração de cada `Field`
+- **Validadores síncronos e assíncronos** — proteção nativa contra race conditions em validações async
+- **Debounce** — throttle de validação em campos com muita digitação
+- **Modos de validação** — `onChange`, `onBlur` ou `onSubmit`
+- **Validação condicional** — `applyWhen` ativa regras somente quando outro campo satisfaz uma condição
+- **Validação entre campos** — compare ou referencie campos irmãos via `valueOf`
+- **Máscara de entrada** — `mask()` embutido com remoção automática no JSON
+- **Auto-scroll em erros** — `submit()` e `trigger()` focam/rolam para o primeiro campo inválido
+- **Widgets prontos** — `SignalTextField`, `SignalDropdown`, `SignalCheckbox`, `SignalSwitch`, `SignalRadioGroup`, `SignalCheckboxGroup`, `SignalSlider`, `SignalRangeSlider`, `SignalDateTimePicker`, `SignalDateRangePicker`, `SignalChoiceChip`, `SignalFilterChip`
+- **Alto desempenho** — cada campo notifica apenas seus próprios ouvintes; um cache no nível do formulário evita recomputações desnecessárias a cada rebuild
+- **Fortemente tipado** — cada `Field<T>`, validador e valor do `toJson` é completamente tipado de ponta a ponta; sem vazamentos de `dynamic` no nível do formulário
+- **Escape hatch** — `SignalFormField<T>` conecta qualquer widget Flutter a um `Field` com reatividade completa
+
 ---
 
 ## API principal
@@ -136,6 +290,7 @@ Field<String>('usuario')
 | `isDirty` | `bool` | Valor difere do valor inicial |
 | `isTouched` | `bool` | Campo já foi interagido |
 | `isLoading` | `bool` | Validação assíncrona em andamento |
+| `isDisabled` | `bool` | Campo desabilitado (validadores ignorados) |
 | `initialValue` | `T?` | Valor com que o campo foi inicializado |
 | `exposedRules` | `List<({String message, bool isValid})>` | Regras marcadas com `exposed: true` |
 
@@ -143,33 +298,114 @@ Field<String>('usuario')
 |---|---|
 | `touch()` | Marca o campo como tocado |
 | `reset()` | Restaura o valor inicial e limpa erros |
+| `reset({to})` | Restaura o valor inicial, ou define um valor arbitrário via o parâmetro nomeado `to` |
+| `parse(fn)` | Converte a entrada de string bruta para o tipo do campo (ex: `String → int`) |
+| `transform(fn)` | Normaliza o valor antes de armazenar (trim, lowercase, etc.) |
 | `invalidate(message)` | Define um erro manualmente |
+| `clearError()` | Limpa o erro atual sem reexecutar validadores |
+| `disable()` | Desabilita o campo — todos os validadores são ignorados |
+| `enable()` | Reabilita o campo — restaura a validação normal |
 | `validate()` | Executa validadores síncronos, retorna `bool` |
 | `validateAsync()` | Executa todos os validadores, retorna `Future<bool>` |
 | `debounce(duration)` | Throttle da validação |
 | `validationMode(mode)` | Define `onChange`, `onBlur` ou `onSubmit` |
+
+#### `parse(fn)` — conversão de tipo a partir de texto
+
+`parse` registra uma função que converte uma `String` bruta no tipo do campo. É a ponte entre um `TextField` (que sempre emite `String`) e um campo fortemente tipado como `Field<int>` ou `Field<DateTime>`.
+
+```dart
+final idade    = Field<int>('idade').parse(int.tryParse);
+final nascimento = Field<DateTime>('nascimento')
+    .mask('##/##/####')
+    .parse((s) {
+      final p = s.split('/');
+      return DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+    });
+
+idade.value      = '25';        // armazenado como int 25
+nascimento.value = '25121990';  // máscara → '25/12/1990' → parse → DateTime(1990,12,25)
+```
+
+**Como o setter funciona.** `Field.value` aceita `dynamic`. Quando o valor recebido é uma `String`, o pipeline é:
+
+```
+String entrada  →  mask (se configurada)  →  parse (se configurado)  →  transform (se configurado)  →  armazenado como T
+```
+
+Quando o valor não é uma `String` (ex: atribuição programática de um valor já tipado), ele é convertido diretamente para `T?` — os passos de parse e mask são ignorados.
+
+**Atenção com listas vazias.** Como o setter aceita `dynamic`, Dart não consegue inferir o tipo de elemento de um literal vazio — `[]` se torna `List<dynamic>` e a conversão em tempo de execução para `List<String>` falha. Sempre forneça o tipo explícito ao atribuir um literal vazio para um campo de lista tipada:
+
+```dart
+// ✗ erro em runtime — List<dynamic> não é List<String>
+tags.value = [];
+
+// ✓ tipo de elemento explícito
+tags.value = <String>[];
+```
+
+Literais não-vazios (`['a', 'b']`) e variáveis (`final list = <String>[]; tags.value = list;`) funcionam sem anotação, pois Dart infere o tipo a partir dos elementos ou da declaração.
+
+#### Factory `Field.detached<T>`
+
+Cria um `Field` que **não é registrado** no `formCtrl` envolvente. Ideal para uso em testes ou funções auxiliares:
+
+```dart
+final standalone = Field.detached<String>('rotulo');
+// ou com valor inicial:
+final standalone = Field.detached<int>('contador', 0);
+```
+
+#### Factory `Field.computed<T>`
+
+Cria um campo **derivado e somente leitura** cujo valor é recomputado automaticamente sempre que qualquer campo do formulário muda. O campo computado aparece no `toJson`, é excluído do `completionPercent` e seu `isDirty` é sempre `false`.
+
+```dart
+final form = formCtrl(() => (
+  qty:   Field<int>('qty', 1),
+  price: Field<double>('price', 99.9),
+  total: Field.computed<double>('total', (valueOf) {
+    final q = valueOf<int>('qty').value ?? 0;
+    final p = valueOf<double>('price').value ?? 0;
+    return q * p;
+  }),
+));
+
+form.fields.qty.value = 3;
+print(form.fields.total.value); // 299.7
+```
 
 ### `FormController<T>`
 
 Retornado por `formCtrl`. Agrega todos os campos e coordena a validação.
 
 ```dart
-form.submit((f) async { ... });    // valida tudo, chama ao ter sucesso
-form.trigger();                     // valida tudo sem submeter
-form.trigger(path: 'email');        // valida apenas um campo/grupo específico
-form.reset();                       // reseta todos os campos
-form.resetField('email');           // reseta um campo
-form.patchValue({'nome': 'João'});  // define múltiplos valores
+form.submit((f) async { ... });           // valida tudo, chama ao ter sucesso
+form.trigger();                            // valida tudo sem submeter
+form.trigger(path: 'email');               // valida apenas um campo/grupo específico
+form.reset();                              // reseta todos os campos
+form.resetField('email');                  // reseta um campo
+form.patchValue({'nome': 'João'});         // define múltiplos valores
 form.setValue('email', 'a@b.com');
-form.toJson();                      // { nome: 'João', email: 'a@b.com', ... }
-form.toJson(omitNulls: true);       // igual, mas campos null e grupos aninhados vazios são removidos
-form.errors;                        // Map<String, String> de erros atuais
-form.valid;                         // true se errors estiver vazio
-form.isDirty;                       // true se algum campo for dirty
-form.isTouched;                     // true se algum campo for touched
-form.isSubmitting;                  // true durante o callback de submit
-form.isValidating;                  // true enquanto validação async roda
-form.getField<String>('email');     // busca O(1) por nome
+form.fromJson(map);                        // preenche campos a partir de um mapa JSON (objetos aninhados são expandidos)
+form.fromJson(map, setAsInitial: true);    // igual, mas também atualiza o initialValue (padrão para edit-form)
+form.toJson();                             // { nome: 'João', email: 'a@b.com', ... }
+form.toJson(omitNulls: true);              // remove campos null e grupos aninhados vazios
+form.toJson(omitDisabled: true);           // exclui campos desabilitados do resultado
+form.dirtyValues();                        // mapa apenas com os campos que foram alterados
+form.clearErrors();                        // limpa todos os erros de validação
+form.clearErrors(path: 'endereco');        // limpa erros de um campo/grupo específico
+form.setErrors({'email': 'Já cadastrado', 'cpf': 'Inválido'}); // aplica erros do servidor em lote
+form.toQueryString();                      // converte o formulário para parâmetros de URL
+form.completionPercent;                    // fração (0.0–1.0) dos campos não desabilitados e não computados que possuem valor
+form.errors;                               // Map<String, String> de erros atuais
+form.valid;                                // true se errors estiver vazio
+form.isDirty;                              // true se algum campo for dirty
+form.isTouched;                            // true se algum campo for touched
+form.isSubmitting;                         // true durante o callback de submit
+form.isValidating;                         // true enquanto validação async roda
+form.getField<String>('email');            // busca O(1) por nome
 ```
 
 `submit()` chama `touchAll()` e `trigger()` automaticamente antes do callback. Por padrão, ele também foca e rola automaticamente o primeiro campo inválido para a tela.
@@ -184,7 +420,20 @@ Os widgets prontos (como `SignalTextField`) registram automaticamente seu `Focus
 
 #### Edição de Formulário (CRUD) & Reset
 - **Patch Value**: Para preencher dados em um formulário para edição (ex: dados vindos de uma API), use `form.patchValue(Map<String, dynamic> values)`. Ele aceita caminhos em dot-notation (ex: `'personal.idade'`) e atualiza os valores dos campos em uma única operação em lote (notificando os ouvintes da interface apenas uma vez).
+- **Carregar de JSON**: `form.fromJson(map)` aceita qualquer mapa JSON — incluindo objetos aninhados — e preenche os campos correspondentes. Passe `setAsInitial: true` para também atualizar o `initialValue` de cada campo, de forma que um `reset()` posterior retorne aos dados carregados em vez dos valores originais.
 - **Reset**: Chame `form.reset()` para restaurar todos os campos ao seu `initialValue` e limpar todos os erros de validação ativos. Você pode definir o callback `form.onReset` para reagir a este evento. Use `form.resetField('caminho')` para resetar apenas um campo.
+
+#### Padrão de edição (edit-form)
+
+```dart
+// Após buscar dados de uma API:
+final usuario = await api.getUsuario(id);
+form.fromJson(usuario, setAsInitial: true);
+// Agora isDirty é false, e reset() volta para os valores carregados.
+
+// Ao salvar — envia apenas o que o usuário alterou:
+await api.patchUsuario(id, form.dirtyValues());
+```
 
 ### Grupos aninhados — `formGroup`
 
@@ -429,7 +678,7 @@ for (final rule in form.fields.senha.exposedRules)
 ## Máscara de entrada
 
 ```dart
-// Máscara fixa — '#' é um placeholder para qualquer caractere
+// Máscara fixa — '#' é um placeholder para qualquer caractere alfanumérico
 Field<String>('telefone').mask('(##) #####-####');
 
 // Máscara dinâmica CPF / CNPJ (alterna com 11 dígitos)
@@ -437,9 +686,59 @@ Field<String>('documento').maskCPFOrCNPJ();
 
 // Manter o valor formatado no JSON
 Field<String>('cartao').mask('#### #### #### ####', removeMaskOnJson: false);
+
+// Máscaras brasileiras prontas
+Field<String>('cpf').maskCPF();
+Field<String>('cnpj').maskCNPJ();
+Field<String>('celular').maskCelular();
+Field<String>('cep').maskCEP();                        // XX.XXX-XXX
+Field<String>('cep').maskCEP(ponto: false);            // XXXXX-XXX
+Field<String>('data').maskData();                      // DD/MM/YYYY
+Field<String>('hora').maskHora();                      // HH:mm
+Field<String>('valor').maskDecimal(casasDecimais: 2);  // 9.999.999.999,00
 ```
 
 O valor no JSON remove os caracteres de máscara por padrão (`removeMaskOnJson: true`).
+
+### Referência de máscaras
+
+Todas as máscaras aceitam o parâmetro `removeMaskOnJson` (padrão `true`), que controla se a formatação é removida ao acessar `field.jsonValue`. Máscaras de valores decimais convertem a vírgula em ponto no JSON (ex: `1,82` → `1.82`).
+
+#### Máscara genérica
+
+| Método | Formato | Descrição |
+|---|---|---|
+| `mask(pattern)` | personalizável | `#` representa qualquer caractere alfanumérico |
+
+#### Máscaras de formatação brasileira
+
+Formatadores prontos para os padrões de documentos, moeda e entrada de dados utilizados no Brasil.
+
+| Método | Formato | Descrição |
+|---|---|---|
+| `maskAltura()` | `1,82` | Altura em metros,centímetros (máx. 3 dígitos) |
+| `maskCartaoCredito()` | `0000 1111 2222 3333` | Cartão de crédito (16 dígitos, grupos de 4) |
+| `maskCartaoTelefone()` | `000 1111 2222 3333` | Cartão telefônico (15 dígitos: 3 + 4 + 4 + 4) |
+| `maskCEP({ponto})` | `XX.XXX-XXX` / `XXXXX-XXX` | CEP — `ponto: false` remove o ponto inicial |
+| `maskCertidaoNascimento()` | `XXXXXX XX XX XXXX X XXXXX XXX XXXXXXX XX` | Certidão de nascimento (32 dígitos) |
+| `maskCEST()` | `XX.XXX.XX` | Código CEST (7 dígitos) |
+| `maskCNPJ()` | `99.999.999/9999-99` | CNPJ numérico |
+| `maskCNPJAlfanumerico()` | `XX.XXX.XXX/XXXX-XX` | CNPJ alfanumérico — novo formato 2024 (14 chars, maiúsculas) |
+| `maskCPF()` | `XXX.XXX.XXX-XX` | CPF (11 dígitos) |
+| `maskCPFOrCNPJ()` | dinâmico | CPF (≤ 11 dígitos) ou CNPJ (12–14 dígitos) |
+| `maskData()` | `DD/MM/YYYY` | Data |
+| `maskDecimal({casasDecimais})` | `9.999.999.999,00` | Decimal com separadores BR; `casasDecimais` controla as casas (padrão: 2) |
+| `maskHora()` | `HH:mm` | Hora — rejeita hora > 23 e minuto > 59 |
+| `maskIOF()` | `1,234567` | Taxa IOF (1 dígito inteiro + 6 decimais) |
+| `maskKm()` | `000.000` | Quilometragem (6 dígitos) |
+| `maskNCM()` | `XXXX.XX.XX` | Código NCM (8 dígitos) |
+| `maskNUP()` | `XXXXXXX-XX.XXXX.X.XX.XXXX` | NUP — Numeração Única de Processos (20 dígitos) |
+| `maskPeso()` | `103,8` | Peso kg,g — último dígito é decimal, sem separador de milhar |
+| `maskPlacaVeiculo()` | `XXX-XXXX` | Placa de veículo (padrão antigo e Mercosul, maiúsculas) |
+| `maskReal()` | `999.999.999.999` | Valor inteiro em reais com separador de milhar |
+| `maskCelular()` | `(99) 99999-9999` | Celular brasileiro (11 dígitos) |
+| `maskTemperatura()` | `10,8` | Temperatura em °C — último dígito é decimal, sem separador de milhar |
+| `maskValidade({maxLength})` | `MM/AA` / `MM/AAAA` | Validade de cartão — `maxLength: 4` (padrão) ou `6` |
 
 ---
 
@@ -700,7 +999,8 @@ O builder é chamado sempre que `field` notifica seus ouvintes — você tem ace
 | `when(condition)` | Obrigatório condicionalmente |
 | **Brasileiros** | |
 | `validCPF()` | CPF com dígito verificador |
-| `validCNPJ()` | CNPJ com dígito verificador |
+| `validCNPJ()` | CNPJ numérico com dígito verificador |
+| `validCNPJAlfanumerico()` | CNPJ alfanumérico com dígito verificador (novo formato 2024) |
 | `validCPFOrCNPJ()` | CPF ou CNPJ |
 | `validCEP()` | CEP brasileiro |
 | `validPhoneBR()` | Celular brasileiro |
@@ -781,11 +1081,13 @@ Field<List<String>>('tags')
 
 | Método | Descrição |
 |---|---|
+| `required()` | Valor não pode ser `null` — funciona em qualquer `Field<T>` (ex: `Field<int>`, `Field<bool>`, `Field<MeuEnum>`) |
 | `must((val) => bool)` | Regra síncrona customizada |
 | `mustWith((val, valueOf) => bool)` | Regra customizada com acesso a outros campos |
 | `equalTo(other)` | Valor igual a um valor fixo |
 | `isNull()` | Deve ser nulo |
 | `isNotNull()` | Não deve ser nulo |
+| `oneOf(allowedValues)` | Valor é um dos valores permitidos; `null`/vazio passa (combine com `required`) |
 
 ---
 

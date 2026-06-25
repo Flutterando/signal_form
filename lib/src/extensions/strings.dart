@@ -150,7 +150,7 @@ extension StringFieldValidators on Field<String> {
     bool exposed = false,
   }) {
     return addValidator(
-      '$message ${allowedValues.join(', ')}',
+      message,
       (val) => val != null && val.isNotEmpty && !allowedValues.contains(val),
       exposedMessage: exposed,
     );
@@ -1509,61 +1509,52 @@ extension StringFieldValidators on Field<String> {
     );
   }
 
-  /// Applies a dynamic CPF/CNPJ mask that switches format based on the
-  /// number of digits typed.
+  /// Validates that the string is a valid alphanumeric CNPJ (new 2024 format).
   ///
-  /// - Up to 11 digits: formats as CPF `###.###.###-##`
-  /// - 12–14 digits: formats as CNPJ `##.###.###/####-##`
+  /// Accepts both formatted (`AB.CDE.FGH/0001-96`) and raw (`ABCDEFGH000196`) inputs.
+  /// Strips non-alphanumeric chars, uppercases, checks length (14), rejects
+  /// all-same-char sequences, and verifies both check digits via the Receita
+  /// Federal modulo-11 algorithm adapted for alphanumeric values.
   ///
-  /// [removeMaskOnJson] controls whether punctuation is stripped when
-  /// [Field.jsonValue] is accessed (default `true`).
+  /// [message] is the error string shown when validation fails.
   ///
   /// Returns `this` to allow method chaining.
   ///
   /// Example:
   /// ```dart
-  /// final document = Field<String>('document')
-  ///   .maskCPFOrCNPJ()
-  ///   .validCPFOrCNPJ(message: 'Documento inválido');
-  ///
-  /// document.value = '12345678909';
-  /// print(document.value); // '123.456.789-09'
+  /// final cnpj = Field<String>('cnpj')
+  ///   .validCNPJAlfanumerico(message: 'CNPJ inválido');
   /// ```
-  Field<String> maskCPFOrCNPJ({bool removeMaskOnJson = true}) {
-    if (removeMaskOnJson) {
-      transformToJson((val) {
-        if (val is String) return val.replaceAll(_nonDigitRegex, '');
-        return val;
-      });
-    }
-    onValueChanged = (oldValue, newValue) {
-      if (newValue == null) return;
-      final clean = newValue.replaceAll(_nonDigitRegex, '');
-      String formatted;
-      if (clean.length <= 11) {
-        final buffer = StringBuffer();
-        for (var i = 0; i < clean.length; i++) {
-          if (i == 3 || i == 6) buffer.write('.');
-          if (i == 9) buffer.write('-');
-          buffer.write(clean[i]);
-        }
-        formatted = buffer.toString();
-      } else {
-        final limitClean = clean.substring(0, clean.length.clamp(0, 14));
-        final buffer = StringBuffer();
-        for (var i = 0; i < limitClean.length; i++) {
-          if (i == 2 || i == 5) buffer.write('.');
-          if (i == 8) buffer.write('/');
-          if (i == 12) buffer.write('-');
-          buffer.write(limitClean[i]);
-        }
-        formatted = buffer.toString();
+  Field<String> validCNPJAlfanumerico({String message = ''}) {
+    return addValidator(message, (val) {
+      if (val == null || val.isEmpty) return false;
+      final clean = val.replaceAll(RegExp(r'[^0-9A-Za-z]'), '').toUpperCase();
+      if (clean.length != 14) return true;
+      if (RegExp(r'^(.)\1{13}$').hasMatch(clean)) return true;
+
+      int toValue(String c) {
+        final code = c.codeUnitAt(0);
+        return code >= 48 && code <= 57 ? code - 48 : code - 55;
       }
-      if (newValue != formatted) {
-        value = formatted;
+
+      const w1 = [6, 7, 8, 9, 2, 3, 4, 5, 6, 7, 8, 9];
+      var sum = 0;
+      for (var i = 0; i < 12; i++) {
+        sum += toValue(clean[i]) * w1[i];
       }
-    };
-    return this;
+      final d1 = sum % 11 < 2 ? 0 : 11 - sum % 11;
+      if (int.tryParse(clean[12]) != d1) return true;
+
+      const w2 = [5, 6, 7, 8, 9, 2, 3, 4, 5, 6, 7, 8, 9];
+      sum = 0;
+      for (var i = 0; i < 13; i++) {
+        sum += toValue(clean[i]) * w2[i];
+      }
+      final d2 = sum % 11 < 2 ? 0 : 11 - sum % 11;
+      if (int.tryParse(clean[13]) != d2) return true;
+
+      return false;
+    });
   }
 
   bool _isSequential(String chunk) {

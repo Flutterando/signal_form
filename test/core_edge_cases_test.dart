@@ -208,7 +208,7 @@ void main() {
           (f) => f.addValidator('Vazio', (v) => v == null || v.isEmpty),
         );
       addTearDown(field.dispose);
-      field.value = [];
+      field.value = <String>[];
       expect(field.validate(), isTrue);
     });
 
