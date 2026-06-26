@@ -1,3 +1,13 @@
+## 0.2.0
+
+### New features
+
+* **Mask support on typed `Field<T>`** — `field.mask(pattern)` now works correctly on typed fields (e.g. `Field<int>`, `Field<double>`). The mask is applied to the display text while the typed value is handled separately through `parse`. The `text` getter on generic `Field` widgets now returns the masked string representation.
+* **Mask support on computed `Field.computed<DateTime>`** — Computed fields of type `DateTime` can now be decorated with a mask (e.g. `maskData()`, `maskHora()`). The formatted text is exposed via the `.text` getter and can be bound directly to a read-only `TextField`.
+* **Centralized text formatting logic** — Internal text formatting was unified into a single code path shared by both regular and computed fields, eliminating duplication and ensuring consistent mask behavior across field types.
+
+---
+
 ## 0.1.0
 
 ### New features — `Field<T>`

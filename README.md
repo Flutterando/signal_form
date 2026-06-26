@@ -325,6 +325,8 @@ final birth = Field<DateTime>('birth')
 
 age.value = '25';          // stored as int 25
 birth.value = '25121990';  // mask → '25/12/1990' → parse → DateTime(1990,12,25)
+print(birth.text);         // value with mask → '25/12/1990'
+print(birth.value);        // value → DateTime(1990,12,25)
 ```
 
 **How the setter works.** `Field.value` accepts `dynamic`. When the incoming value is a `String`, the pipeline is:

@@ -1,6 +1,6 @@
 name: signal_form
 description: "Schema-based, strongly typed form management for Flutter. Declarative validation, fluent API, built-in widgets, and high performance."
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/Flutterando/signal_form
 
 environment:
